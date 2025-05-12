@@ -199,10 +199,11 @@ def inject_monitor_script(driver):
             newLine.style.marginBottom = '5px';
             newLine.style.color = isError ? 'red' : 'black';
             newLine.textContent = prefix + text;
-            displayArea.appendChild(newLine);
-            // 保持最新的5条记录
-            while (displayArea.children.length > 5) {
-                displayArea.removeChild(displayArea.firstChild);
+            // 将新内容插入到顶部
+            displayArea.insertBefore(newLine, displayArea.firstChild);
+            // 保持最新的3条记录
+            while (displayArea.children.length > 3) {
+                displayArea.removeChild(displayArea.lastChild);
             }
         }
         
