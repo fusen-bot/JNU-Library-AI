@@ -135,30 +135,59 @@ def inject_monitor_script(driver):
         
         // 创建显示区域
         function createDisplayArea() {
+            const inputElement = document.querySelector(targetSelector);
+            if (!inputElement) return null;
+            const parent = inputElement.parentElement;
             const displayDiv = document.createElement('div');
             displayDiv.id = 'suggestion-display';
             displayDiv.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                width: 300px;
-                background: white;
-                border: 1px solid #ccc;
-                padding: 10px;
-                border-radius: 5px;
+                position: absolute;
+                left: 0;
+                top: 100%;
+                width: 100%;
+                background-color: #fff;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border: 1px solid #05a081;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 z-index: 9999;
                 font-size: 14px;
                 max-height: 400px;
                 overflow-y: auto;
+                margin-top: 4px;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+                display: none;
             `;
-            document.body.appendChild(displayDiv);
+            parent.style.position = 'relative'; // 保证绝对定位基于输入框父元素
+            parent.appendChild(displayDiv);
             return displayDiv;
         }
         
         const displayArea = createDisplayArea();
         
+        function showDisplayArea() {
+            displayArea.style.display = 'block';
+            setTimeout(() => {
+                displayArea.style.opacity = '1';
+                displayArea.style.pointerEvents = 'auto';
+            }, 10);
+        }
+        function hideDisplayArea() {
+            displayArea.style.opacity = '0';
+            displayArea.style.pointerEvents = 'none';
+            setTimeout(() => {
+                displayArea.style.display = 'none';
+            }, 300);
+        }
+        
         function updateDisplay(text, isInput = true, isError = false) {
+            if (!text) {
+                hideDisplayArea();
+                return;
+            }
+            showDisplayArea();
             const prefix = isInput ? '用户输入: ' : (isError ? '错误: ' : '星火建议: ');
             const newLine = document.createElement('div');
             newLine.style.marginBottom = '5px';
@@ -206,6 +235,8 @@ def inject_monitor_script(driver):
                     updateDisplay(data.content, false);
                 } else if (data.error) {
                     throw new Error(data.error);
+                } else {
+                    hideDisplayArea();
                 }
             } catch (error) {
                 console.error('请求失败:', error);
@@ -223,13 +254,18 @@ def inject_monitor_script(driver):
         
         function handleInput(event) {
             const inputValue = event.target.value.trim();
-            if (!inputValue) return;
+            if (!inputValue) {
+                hideDisplayArea();
+                return;
+            }
             
             console.log('捕获到输入:', inputValue);
             updateDisplay(inputValue, true);
             
             if (inputValue.length >= 6) {
                 sendToServer(inputValue);
+            } else {
+                hideDisplayArea();
             }
         }
 
