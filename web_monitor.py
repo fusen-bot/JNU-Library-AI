@@ -187,8 +187,14 @@ def inject_monitor_script(driver):
                 hideDisplayArea();
                 return;
             }
+            
+            // 仅在非输入内容且非获取建议提示时显示
+            if (isInput || (!isInput && !isError && text === '正在获取建议...')) {
+                return;
+            }
+            
             showDisplayArea();
-            const prefix = isInput ? '用户输入: ' : (isError ? '错误: ' : '星火建议: ');
+            const prefix = isError ? '错误: ' : '';
             const newLine = document.createElement('div');
             newLine.style.marginBottom = '5px';
             newLine.style.color = isError ? 'red' : 'black';
@@ -209,7 +215,8 @@ def inject_monitor_script(driver):
             lastRequestTime = now;
             
             try {
-                updateDisplay('正在获取建议...', false);
+                // 不显示"正在获取建议..."消息
+                // updateDisplay('正在获取建议...', false);
                 
                 const response = await fetch('http://localhost:5001/input', {
                     method: 'POST',
@@ -260,7 +267,8 @@ def inject_monitor_script(driver):
             }
             
             console.log('捕获到输入:', inputValue);
-            updateDisplay(inputValue, true);
+            // 不再显示用户输入
+            // updateDisplay(inputValue, true);
             
             if (inputValue.length >= 6) {
                 sendToServer(inputValue);
