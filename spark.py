@@ -57,7 +57,14 @@ def chat_handler():
         if not data or 'messages' not in data:
             return jsonify({"error": "无效输入，请求体必须包含 'messages' 字段"}), 400
 
-        current_messages = data['messages']
+        # 添加系统消息
+        system_message = {
+            "role": "system",
+            "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的3本书籍和2个用户最常搜的问题。注意事项：只回复书籍和问题，不要其他字词。"
+        }
+        
+        # 将系统消息添加到消息列表的开头
+        current_messages = [system_message] + data['messages']
 
         payload = {
             "model": "generalv3.5",

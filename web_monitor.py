@@ -43,8 +43,11 @@ def after_request(response):
     return response
 
 # 星火API配置
-API_PASSWORD = "cySRZXOQXUWbCQqsKQAO:ShxaKdkJFfhrMQaxneXg"
+API_PASSWORD = "vxtIbOIsNUPnvaVGhyrc:DbrpVfWvipRzHeFyRlGb"
 API_URL = "https://spark-api-open.xf-yun.com/v1/chat/completions"
+
+# 在文件的开头添加一个全局变量来记录上次请求的时间
+last_request_time = 0
 
 def get_spark_suggestion(user_input):
     logger.info(f"正在向星火API发送请求，用户输入: {user_input}")
@@ -59,11 +62,11 @@ def get_spark_suggestion(user_input):
         "messages": [
             {
                 "role": "system",
-                "content": "你是一个图书馆检索助手，请根据用户输入的关键词提供相关的图书检索建议。建议要简短精确。"
+                "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的3本书籍和2个用户最常搜的问题。注意事项：只回复书籍和问题，不要其他字词。"
             },
             {
                 "role": "user",
-                "content": f"用户正在搜索图书，输入内容是: '{user_input}'。请提供2-3个可能的完整检索词建议。"
+                "content": f"用户输入的词是: '{user_input}'。"
             }
         ],
         "temperature": 0.7,
@@ -88,14 +91,23 @@ def get_spark_suggestion(user_input):
 
 @app.route('/input', methods=['POST'])
 def handle_input():
+    global last_request_time
     try:
         data = request.json
         input_value = data.get('value', '')
         logger.info(f"收到前端输入: {input_value}")
         
+        current_time = time.time()
+        # 检查当前时间与上次请求时间的差值
+        if current_time - last_request_time < 5:
+            logger.info("请求过于频繁，5秒内不再请求")
+            return jsonify({"status": "success", "suggestions": []})
+        
         # 当输入超过6个字符时调用星火API
         if len(input_value) >= 6:
             logger.info("输入长度超过6个字符，开始调用星火API")
+            # 更新上次请求时间
+            last_request_time = current_time
             # 添加延迟以模拟API处理时间
             time.sleep(1)
             suggestion = get_spark_suggestion(input_value)
