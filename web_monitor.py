@@ -11,6 +11,7 @@ import time
 import threading
 import requests
 import logging
+import re
 
 # 配置日志
 logging.basicConfig(
@@ -89,6 +90,27 @@ def get_spark_suggestion(user_input):
         logger.error(f"调用星火API时发生错误: {str(e)}")
         return None
 
+def is_valid_input(text):
+    """
+    验证输入是否为有效的中文或英文文本
+    返回: (bool, str) - (是否有效, 处理后的文本)
+    """
+    # 移除所有空格
+    text = text.strip()
+    if not text:
+        return False, ""
+    
+    # 检查是否包含中文字符
+    has_chinese = bool(re.search(r'[\u4e00-\u9fff]', text))
+    # 检查是否只包含英文字母
+    is_english = bool(re.match(r'^[a-zA-Z]+$', text))
+    
+    # 如果既不是中文也不是纯英文，则返回False
+    if not (has_chinese or is_english):
+        return False, text
+    
+    return True, text
+
 @app.route('/input', methods=['POST'])
 def handle_input():
     global last_request_time
@@ -97,20 +119,26 @@ def handle_input():
         input_value = data.get('value', '')
         logger.info(f"收到前端输入: {input_value}")
         
-        current_time = time.time()
-        # 检查当前时间与上次请求时间的差值
-        if current_time - last_request_time < 5:
-            logger.info("请求过于频繁，5秒内不再请求")
+        # 验证输入
+        is_valid, cleaned_input = is_valid_input(input_value)
+        if not is_valid:
+            logger.info("输入包含无效字符（非中文或英文），忽略请求")
             return jsonify({"status": "success", "suggestions": []})
         
-        # 当输入超过6个字符时调用星火API
-        if len(input_value) >= 6:
-            logger.info("输入长度超过6个字符，开始调用星火API")
+        current_time = time.time()
+        # 检查当前时间与上次请求时间的差值
+        if current_time - last_request_time < 2:
+            logger.info("请求过于频繁，2秒内不再请求")
+            return jsonify({"status": "success", "suggestions": []})
+        
+        # 当输入超过4个字符时调用星火API
+        if len(cleaned_input) >= 4:
+            logger.info("输入长度超过4个字符，开始调用星火API")
             # 更新上次请求时间
             last_request_time = current_time
             # 添加延迟以模拟API处理时间
             time.sleep(1)
-            suggestion = get_spark_suggestion(input_value)
+            suggestion = get_spark_suggestion(cleaned_input)
             if suggestion:
                 logger.info(f"星火API返回建议: {suggestion}")
                 return jsonify({"status": "success", "suggestions": suggestion})
@@ -118,7 +146,7 @@ def handle_input():
                 logger.error("星火API返回空建议")
                 return jsonify({"status": "error", "error": "获取建议失败"})
         
-        logger.info("输入长度不足6个字符，不调用API")
+        logger.info("输入长度不足4个字符，不调用API")
         return jsonify({"status": "success", "suggestions": []})
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
@@ -126,19 +154,30 @@ def handle_input():
 
 def inject_monitor_script(driver):
     monitor_script = """
-    function initInputMonitor() {
+    (function() {
+        // 保证脚本只初始化一次的标志
+        if (window.__inputMonitorInitialized) return;
+        window.__inputMonitorInitialized = true;
+        
+        console.log('初始化输入监控系统');
+        
         const targetSelector = '.ant-select-search__field';
         let lastRequestTime = 0;
-        const REQUEST_DELAY = 2000; // 2秒延迟
+        const REQUEST_DELAY = 2000; 
         const MAX_RETRIES = 3;
-        const RETRY_DELAY = 1000; // 1秒重试延迟
+        const RETRY_DELAY = 2000; 
         
         // 创建显示区域
         function createDisplayArea() {
+            // 先检查是否已存在
+            let displayDiv = document.getElementById('suggestion-display');
+            if (displayDiv) return displayDiv;
+            
             const inputElement = document.querySelector(targetSelector);
             if (!inputElement) return null;
+            
             const parent = inputElement.parentElement;
-            const displayDiv = document.createElement('div');
+            displayDiv = document.createElement('div');
             displayDiv.id = 'suggestion-display';
             displayDiv.style.cssText = `
                 position: absolute;
@@ -157,24 +196,29 @@ def inject_monitor_script(driver):
                 margin-top: 4px;
                 opacity: 0;
                 pointer-events: none;
-                transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+                transition: opacity 0.15s ease;
                 display: none;
+                line-height: 1.6;
+                color: #333;
+                user-select: text;
+                -webkit-user-select: text;
             `;
             parent.style.position = 'relative'; // 保证绝对定位基于输入框父元素
             parent.appendChild(displayDiv);
             return displayDiv;
         }
         
-        const displayArea = createDisplayArea();
-        
-        function showDisplayArea() {
+        function showDisplayArea(displayArea) {
+            if (!displayArea) return;
             displayArea.style.display = 'block';
             setTimeout(() => {
                 displayArea.style.opacity = '1';
                 displayArea.style.pointerEvents = 'auto';
             }, 10);
         }
-        function hideDisplayArea() {
+        
+        function hideDisplayArea(displayArea) {
+            if (!displayArea) return;
             displayArea.style.opacity = '0';
             displayArea.style.pointerEvents = 'none';
             setTimeout(() => {
@@ -183,27 +227,39 @@ def inject_monitor_script(driver):
         }
         
         function updateDisplay(text, isInput = true, isError = false) {
+            const displayArea = document.getElementById('suggestion-display');
+            if (!displayArea) return;
+            
             if (!text) {
-                hideDisplayArea();
+                // 当没有内容时显示默认提示
+                showDisplayArea(displayArea);
+                const defaultText = document.createElement('div');
+                defaultText.style.marginBottom = '8px';
+                defaultText.style.padding = '8px';
+                defaultText.style.backgroundColor = '#f8f9fa';
+                defaultText.style.borderRadius = '4px';
+                defaultText.style.cursor = 'text';
+                defaultText.style.color = '#666';
+                defaultText.textContent = '推荐书籍｜热门问题';
+                displayArea.innerHTML = '';
+                displayArea.appendChild(defaultText);
                 return;
             }
             
-            // 仅在非输入内容且非获取建议提示时显示
-            if (isInput || (!isInput && !isError && text === '正在获取建议...')) {
-                return;
-            }
-            
-            showDisplayArea();
-            const prefix = isError ? '错误: ' : '';
-            const newLine = document.createElement('div');
-            newLine.style.marginBottom = '5px';
-            newLine.style.color = isError ? 'red' : 'black';
-            newLine.textContent = prefix + text;
-            // 将新内容插入到顶部
-            displayArea.insertBefore(newLine, displayArea.firstChild);
-            // 保持最新的3条记录
-            while (displayArea.children.length > 3) {
-                displayArea.removeChild(displayArea.lastChild);
+            // 只在有实际内容时显示
+            if (text && !isInput && !isError) {
+                showDisplayArea(displayArea);
+                const newLine = document.createElement('div');
+                newLine.style.marginBottom = '8px';
+                newLine.style.padding = '8px';
+                newLine.style.backgroundColor = '#f8f9fa';
+                newLine.style.borderRadius = '4px';
+                newLine.style.cursor = 'text';
+                newLine.textContent = text;
+                displayArea.innerHTML = '';
+                displayArea.appendChild(newLine);
+            } else {
+                hideDisplayArea(displayArea);
             }
         }
         
@@ -216,9 +272,6 @@ def inject_monitor_script(driver):
             lastRequestTime = now;
             
             try {
-                // 不显示"正在获取建议..."消息
-                // updateDisplay('正在获取建议...', false);
-                
                 const response = await fetch('http://localhost:5001/input', {
                     method: 'POST',
                     headers: {
@@ -241,50 +294,70 @@ def inject_monitor_script(driver):
                 
                 if (data.content) {
                     updateDisplay(data.content, false);
-                } else if (data.error) {
-                    throw new Error(data.error);
                 } else {
-                    hideDisplayArea();
+                    const displayArea = document.getElementById('suggestion-display');
+                    if (displayArea) hideDisplayArea(displayArea);
                 }
             } catch (error) {
                 console.error('请求失败:', error);
                 if (retryCount < MAX_RETRIES) {
-                    const retryDelay = RETRY_DELAY * Math.pow(2, retryCount); // 指数退避
+                    const retryDelay = RETRY_DELAY * Math.pow(2, retryCount);
                     console.log(`重试中... (${retryCount + 1}/${MAX_RETRIES}), 等待 ${retryDelay}ms`);
-                    updateDisplay(`请求失败，正在重试 (${retryCount + 1}/${MAX_RETRIES})...`, false, true);
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
                     return sendToServer(inputValue, retryCount + 1);
-                } else {
-                    updateDisplay('请求失败: ' + error.message, false, true);
                 }
             }
+        }
+        
+        // 去除旧的事件监听(防止重复绑定)
+        function removeOldListeners() {
+            const inputs = document.querySelectorAll(targetSelector);
+            inputs.forEach(input => {
+                if (input.hasAttribute('data-monitored')) {
+                    const oldHandler = input._inputHandler;
+                    if (oldHandler) {
+                        input.removeEventListener('input', oldHandler);
+                    }
+                    input.removeAttribute('data-monitored');
+                }
+            });
         }
         
         function handleInput(event) {
             const inputValue = event.target.value.trim();
             if (!inputValue) {
-                hideDisplayArea();
+                const displayArea = document.getElementById('suggestion-display');
+                if (displayArea) hideDisplayArea(displayArea);
                 return;
             }
             
             console.log('捕获到输入:', inputValue);
-            // 不再显示用户输入
-            // updateDisplay(inputValue, true);
             
-            if (inputValue.length >= 6) {
+            if (inputValue.length >= 3) {
+                // 显示默认提示
+                updateDisplay('');
+                // 发送请求获取建议
                 sendToServer(inputValue);
             } else {
-                hideDisplayArea();
+                const displayArea = document.getElementById('suggestion-display');
+                if (displayArea) hideDisplayArea(displayArea);
             }
         }
 
         // 监听动态加载的输入框
         function setupMonitor() {
+            // 先清除旧的监听器
+            removeOldListeners();
+            
             const inputElement = document.querySelector(targetSelector);
             if (inputElement && !inputElement.hasAttribute('data-monitored')) {
                 console.log('找到输入框，设置监听器');
                 inputElement.setAttribute('data-monitored', 'true');
-                inputElement.addEventListener('input', handleInput);
+                // 存储处理函数的引用以便后续移除
+                inputElement._inputHandler = handleInput;
+                inputElement.addEventListener('input', inputElement._inputHandler);
+                // 重新创建显示区域
+                createDisplayArea();
             }
         }
 
@@ -293,18 +366,34 @@ def inject_monitor_script(driver):
             setupMonitor();
         });
 
-        // 开始观察
+        // 开始观察整个文档
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
+        
+        // 监听路由变化(前进/后退)
+        window.addEventListener('popstate', function() {
+            console.log('检测到路由变化(popstate)，重新设置监听器');
+            // 等待DOM更新完成再重新绑定
+            setTimeout(setupMonitor, 500);
+        });
+        
+        // 监听hash变化(如果网站使用hash路由)
+        window.addEventListener('hashchange', function() {
+            console.log('检测到hash变化，重新设置监听器');
+            // 等待DOM更新完成再重新绑定
+            setTimeout(setupMonitor, 500);
+        });
+        
+        // 定时检查保证监听器正常工作
+        setInterval(setupMonitor, 1000);
 
         // 初始检查
         setupMonitor();
-    }
-    
-    // 初始化监听器
-    initInputMonitor();
+        
+        console.log('监听脚本加载完成，等待输入框出现');
+    })();
     """
     
     try:
@@ -332,7 +421,7 @@ def start_browser():
         driver.get("https://opac.jiangnan.edu.cn/#/Home")
         
         logger.info("浏览器已启动，正在等待页面加载...")
-        time.sleep(5)  # 给React应用足够的加载时间
+        time.sleep(3)  # 给React应用足够的加载时间
         
         logger.info("注入监听脚本...")
         inject_monitor_script(driver)
