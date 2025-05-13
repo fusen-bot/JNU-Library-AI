@@ -60,7 +60,7 @@ def chat_handler():
         # 添加系统消息
         system_message = {
             "role": "system",
-            "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的3本书籍和2个相关内容用户最常搜的问题。注意事项：不用解释，只回复找到的书籍名和相关问题，不要其他字词和文颜字。模板示例：书籍：《红楼梦》《水浒传》《西游记》问题：xx？xx？"
+            "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的3本书籍和2个相关内容用户最常搜的问题。你必须严格按照以下格式输出（不要有任何额外文字）：\n书籍：《书名1》《书名2》《书名3》\n问题：问题1？问题2？"
         }
         
         # 将系统消息添加到消息列表的开头
@@ -101,7 +101,14 @@ def chat_handler():
             return jsonify({"error": "星火API响应格式错误或缺少必要字段"}), 500
             
         assistant_message = response_json['choices'][0]['message']['content']
-        return jsonify({"role": "assistant", "content": assistant_message})
+        logger.info(f"处理后的返回内容: {assistant_message}")
+        
+        # 统一返回格式，使用suggestions字段（web_monitor.py也使用这个字段）
+        return jsonify({
+            "role": "assistant", 
+            "content": assistant_message, 
+            "suggestions": assistant_message
+        })
 
     except requests.exceptions.HTTPError as http_err:
         error_message = f"请求星火API时发生HTTP错误: {http_err}"

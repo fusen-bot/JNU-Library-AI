@@ -63,7 +63,7 @@ def get_spark_suggestion(user_input):
         "messages": [
             {
                 "role": "system",
-                "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的4本书籍和2个用户最常搜的问题。注意事项：不要解释，只回复找到的书籍名和相关问题，不要其他字词和文颜字。模板示例：书籍：《红楼梦》《水浒传》《西游记》问题：xx？xx？"
+                "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的4本书籍和2个用户最常搜的问题。你必须严格按照以下格式输出（不要有任何额外文字）：\n书籍：《书名1》《书名2》《书名3》《书名4》\n问题：问题1？问题2？"
             },
             {
                 "role": "user",
@@ -91,23 +91,6 @@ def get_spark_suggestion(user_input):
         return None
 
 def is_valid_input(text):
-    """
-    验证输入是否为有效的中文或英文文本
-    返回: (bool, str) - (是否有效, 处理后的文本)
-    """
-    # 移除所有空格
-    text = text.strip()
-    if not text:
-        return False, ""
-    
-    # 检查是否包含中文字符
-    has_chinese = bool(re.search(r'[\u4e00-\u9fff]', text))
-    # 检查是否只包含英文字母
-    is_english = bool(re.match(r'^[a-zA-Z]+$', text))
-    
-    # 如果既不是中文也不是纯英文，则返回False
-    if not (has_chinese or is_english):
-        return False, text
     
     return True, text
 
@@ -131,9 +114,9 @@ def handle_input():
             logger.info("请求过于频繁，2秒内不再请求")
             return jsonify({"status": "success", "suggestions": []})
         
-        # 当输入超过4个字符时调用星火API
-        if len(cleaned_input) >= 4:
-            logger.info("输入长度超过4个字符，开始调用星火API")
+        # 当输入超过3个字符时调用星火API
+        if len(cleaned_input) >= 3:
+            logger.info("输入长度超过3个字符，开始调用星火API")
             # 更新上次请求时间
             last_request_time = current_time
             # 添加延迟以模拟API处理时间
@@ -185,13 +168,14 @@ def inject_monitor_script(driver):
                 top: 100%;
                 width: 100%;
                 background-color: #fff;
-                padding: 8px 12px;
+                padding: 12px 15px;
                 border-radius: 4px;
                 border: 1px solid #05a081;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 z-index: 9999;
                 font-size: 14px;
-                max-height: 400px;
+                max-height: 500px;
+                min-height: 50px;
                 overflow-y: auto;
                 margin-top: 4px;
                 opacity: 0;
@@ -241,6 +225,7 @@ def inject_monitor_script(driver):
                 defaultText.style.cursor = 'text';
                 defaultText.style.color = '#666';
                 defaultText.textContent = '推荐书籍｜热门问题';
+                defaultText.style.textAlign = 'center';
                 displayArea.innerHTML = '';
                 displayArea.appendChild(defaultText);
                 return;
@@ -249,15 +234,237 @@ def inject_monitor_script(driver):
             // 只在有实际内容时显示
             if (text && !isInput && !isError) {
                 showDisplayArea(displayArea);
-                const newLine = document.createElement('div');
-                newLine.style.marginBottom = '8px';
-                newLine.style.padding = '8px';
-                newLine.style.backgroundColor = '#f8f9fa';
-                newLine.style.borderRadius = '4px';
-                newLine.style.cursor = 'text';
-                newLine.textContent = text;
                 displayArea.innerHTML = '';
-                displayArea.appendChild(newLine);
+                
+                console.log("处理建议内容:", text); // 调试日志
+                
+                // 分割处理书籍和问题部分
+                let booksPart = '';
+                let questionsPart = '';
+                
+                // 更严格的格式检查，支持多种格式
+                // 1. 尝试匹配"书籍："和"问题："分隔的标准格式
+                const standardFormat = /书籍[:：](.+?)问题[:：](.+?)$/is;
+                const standardMatch = text.match(standardFormat);
+                
+                if (standardMatch && standardMatch.length >= 3) {
+                    booksPart = standardMatch[1].trim();
+                    questionsPart = standardMatch[2].trim();
+                } else {
+                    // 2. 尝试分别匹配书籍和问题部分
+                    const booksMatch = text.match(/书籍[:：](.+?)(?=问题[:：]|$)/is);
+                    const questionsMatch = text.match(/问题[:：](.+?)$/is);
+                    
+                    if (booksMatch && booksMatch[1]) {
+                        booksPart = booksMatch[1].trim();
+                    }
+                    
+                    if (questionsMatch && questionsMatch[1]) {
+                        questionsPart = questionsMatch[1].trim();
+                    }
+                }
+                
+                console.log("解析结果 - 书籍部分:", booksPart);
+                console.log("解析结果 - 问题部分:", questionsPart);
+                
+                // 如果无法识别格式，则原样显示
+                if (!booksPart && !questionsPart) {
+                    const defaultContainer = document.createElement('div');
+                    defaultContainer.style.marginBottom = '8px';
+                    defaultContainer.style.padding = '8px';
+                    defaultContainer.style.backgroundColor = '#f8f9fa';
+                    defaultContainer.style.borderRadius = '4px';
+                    defaultContainer.style.cursor = 'text';
+                    defaultContainer.textContent = text;
+                    displayArea.appendChild(defaultContainer);
+                    return;
+                }
+                
+                // 创建书籍部分
+                if (booksPart) {
+                    // 创建标题
+                    const booksTitle = document.createElement('div');
+                    booksTitle.style.fontWeight = 'bold';
+                    booksTitle.style.marginBottom = '6px';
+                    booksTitle.style.fontSize = '13px';
+                    booksTitle.style.color = '#333';
+                    booksTitle.textContent = '推荐书籍';
+                    displayArea.appendChild(booksTitle);
+                    
+                    // 创建书籍内容容器
+                    const booksContainer = document.createElement('div');
+                    booksContainer.style.marginBottom = '15px'; // 增加间距
+                    booksContainer.style.padding = '0';
+                    booksContainer.style.display = 'flex';
+                    booksContainer.style.flexWrap = 'wrap';
+                    booksContainer.style.gap = '8px';
+                    
+                    // 尝试分割多本书
+                    const books = booksPart.match(/《[^《》]+》/g) || [booksPart];
+                    
+                    // 限制最多显示3本书
+                    const maxBooks = Math.min(books.length, 3);
+                    
+                    for (let i = 0; i < maxBooks; i++) {
+                        const book = books[i];
+                        // 创建独立的书籍项容器
+                        const bookItem = document.createElement('div');
+                        bookItem.style.flex = '1';
+                        bookItem.style.minWidth = '30%';
+                        bookItem.style.backgroundColor = '#e8f4f2';
+                        bookItem.style.borderRadius = '4px';
+                        bookItem.style.padding = '8px';
+                        bookItem.style.cursor = 'pointer';
+                        bookItem.style.color = '#2a6a5c';
+                        bookItem.style.border = '1px solid #d0e6e2';
+                        bookItem.style.transition = 'all 0.2s ease';
+                        bookItem.setAttribute('data-item-type', 'book');
+                        bookItem.setAttribute('data-item-index', i.toString());
+                        
+                        // 添加悬停效果
+                        bookItem.addEventListener('mouseover', function() {
+                            this.style.backgroundColor = '#d4ebe7';
+                            this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        });
+                        
+                        bookItem.addEventListener('mouseout', function() {
+                            this.style.backgroundColor = '#e8f4f2';
+                            this.style.boxShadow = 'none';
+                        });
+                        
+                        // 内容布局
+                        const bookContent = document.createElement('div');
+                        bookContent.style.display = 'flex';
+                        bookContent.style.alignItems = 'center';
+                        
+                        // 添加序号圆圈
+                        const bookIndex = document.createElement('span');
+                        bookIndex.style.minWidth = '18px';
+                        bookIndex.style.height = '18px';
+                        bookIndex.style.backgroundColor = '#05a081';
+                        bookIndex.style.color = '#fff';
+                        bookIndex.style.borderRadius = '50%';
+                        bookIndex.style.fontSize = '10px';
+                        bookIndex.style.display = 'flex';
+                        bookIndex.style.alignItems = 'center';
+                        bookIndex.style.justifyContent = 'center';
+                        bookIndex.style.marginRight = '8px';
+                        bookIndex.style.flexShrink = '0';
+                        bookIndex.textContent = (i + 1).toString();
+                        
+                        // 添加文本
+                        const bookText = document.createElement('span');
+                        bookText.style.overflow = 'hidden';
+                        bookText.style.textOverflow = 'ellipsis';
+                        bookText.style.wordBreak = 'break-word'; // 允许在任何字符间断行
+                        bookText.textContent = book.trim();
+                        
+                        bookContent.appendChild(bookIndex);
+                        bookContent.appendChild(bookText);
+                        bookItem.appendChild(bookContent);
+                        booksContainer.appendChild(bookItem);
+                    }
+                    
+                    displayArea.appendChild(booksContainer);
+                }
+                
+                // 创建问题部分
+                if (questionsPart) {
+                    // 创建标题
+                    const questionsTitle = document.createElement('div');
+                    questionsTitle.style.fontWeight = 'bold';
+                    questionsTitle.style.marginBottom = '6px';
+                    questionsTitle.style.fontSize = '13px';
+                    questionsTitle.style.color = '#333';
+                    questionsTitle.textContent = '热门问题';
+                    displayArea.appendChild(questionsTitle);
+                    
+                    // 创建问题内容容器
+                    const questionsContainer = document.createElement('div');
+                    questionsContainer.style.display = 'flex';
+                    questionsContainer.style.flexDirection = 'column';
+                    questionsContainer.style.gap = '8px';
+                    
+                    // 处理问题部分
+                    let questions = [];
+                    if (questionsPart.includes('？') || questionsPart.includes('?')) {
+                        // 尝试分割多个问题 (按问号分割)
+                        questions = questionsPart.split(/[？?]/).filter(q => q.trim());
+                    } else {
+                        // 如果没有问号，则将整个文本作为一个问题
+                        questions = [questionsPart];
+                    }
+                    
+                    // 限制最多显示2个问题
+                    const maxQuestions = Math.min(questions.length, 2);
+                    
+                    for (let i = 0; i < maxQuestions; i++) {
+                        if (!questions[i].trim()) continue;
+                        
+                        // 创建独立的问题项容器
+                        const questionItem = document.createElement('div');
+                        questionItem.style.backgroundColor = '#f0f2f7';
+                        questionItem.style.borderRadius = '4px';
+                        questionItem.style.padding = '8px';
+                        questionItem.style.cursor = 'pointer';
+                        questionItem.style.color = '#3a5ca8';
+                        questionItem.style.border = '1px solid #dce1ec';
+                        questionItem.style.transition = 'all 0.2s ease';
+                        questionItem.setAttribute('data-item-type', 'question');
+                        questionItem.setAttribute('data-item-index', i.toString());
+                        
+                        // 添加悬停效果
+                        questionItem.addEventListener('mouseover', function() {
+                            this.style.backgroundColor = '#e4e8f3';
+                            this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        });
+                        
+                        questionItem.addEventListener('mouseout', function() {
+                            this.style.backgroundColor = '#f0f2f7';
+                            this.style.boxShadow = 'none';
+                        });
+                        
+                        // 内容布局
+                        const questionContent = document.createElement('div');
+                        questionContent.style.display = 'flex';
+                        questionContent.style.alignItems = 'center';
+                        
+                        // 添加序号圆圈
+                        const questionIndex = document.createElement('span');
+                        questionIndex.style.minWidth = '18px';
+                        questionIndex.style.height = '18px';
+                        questionIndex.style.backgroundColor = '#4671d5';
+                        questionIndex.style.color = '#fff';
+                        questionIndex.style.borderRadius = '50%';
+                        questionIndex.style.fontSize = '10px';
+                        questionIndex.style.display = 'flex';
+                        questionIndex.style.alignItems = 'center';
+                        questionIndex.style.justifyContent = 'center';
+                        questionIndex.style.marginRight = '8px';
+                        questionIndex.style.flexShrink = '0';
+                        questionIndex.textContent = (i + 1).toString();
+                        
+                        // 添加文本
+                        const questionText = document.createElement('span');
+                        questionText.style.overflow = 'hidden';
+                        questionText.style.textOverflow = 'ellipsis';
+                        questionText.style.wordBreak = 'break-word'; // 允许在任何字符间断行
+                        
+                        // 只有在不是原始文本结尾处的问题才添加问号
+                        if (i < questions.length - 1 || questionsPart.endsWith('？') || questionsPart.endsWith('?')) {
+                            questionText.textContent = questions[i].trim() + '？';
+                        } else {
+                            questionText.textContent = questions[i].trim();
+                        }
+                        
+                        questionContent.appendChild(questionIndex);
+                        questionContent.appendChild(questionText);
+                        questionItem.appendChild(questionContent);
+                        questionsContainer.appendChild(questionItem);
+                    }
+                    
+                    displayArea.appendChild(questionsContainer);
+                }
             } else {
                 hideDisplayArea(displayArea);
             }

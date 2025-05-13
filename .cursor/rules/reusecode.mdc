@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Extend or modify existing functions instead of rewriting similar logic.
