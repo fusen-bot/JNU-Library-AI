@@ -12,6 +12,7 @@ import threading
 import requests
 import logging
 import re
+from spark import get_spark_suggestion
 
 # 配置日志
 logging.basicConfig(
@@ -26,7 +27,7 @@ app = Flask(__name__)
 # 配置CORS
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://opac.jiangnan.edu.cn"],
+        "origins": ["https://opac.jiangnan.edu.cn", "http://localhost:*", "http://127.0.0.1:*"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True,
@@ -43,52 +44,8 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
-# 星火API配置
-API_PASSWORD = "vxtIbOIsNUPnvaVGhyrc:DbrpVfWvipRzHeFyRlGb"
-API_URL = "https://spark-api-open.xf-yun.com/v1/chat/completions"
-
 # 在文件的开头添加一个全局变量来记录上次请求的时间
 last_request_time = 0
-
-def get_spark_suggestion(user_input):
-    logger.info(f"正在向星火API发送请求，用户输入: {user_input}")
-    
-    headers = {
-        "Authorization": f"Bearer {API_PASSWORD}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "generalv3.5",
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是一个专业的图书馆馆员，请根据用户输入的关键词介绍最相关的4本书籍和2个用户最常搜的问题。你必须严格按照以下格式输出（不要有任何额外文字）：\n书籍：《书名1》《书名2》《书名3》《书名4》\n问题：问题1？问题2？"
-            },
-            {
-                "role": "user",
-                "content": f"用户输入的词是: '{user_input}'。"
-            }
-        ],
-        "temperature": 0.7,
-        "max_tokens": 100
-    }
-    
-    try:
-        response = requests.post(API_URL, headers=headers, json=payload)
-        logger.info(f"星火API响应状态码: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            suggestion = result['choices'][0]['message']['content']
-            logger.info(f"星火API返回建议: {suggestion}")
-            return suggestion
-        else:
-            logger.error(f"星火API请求失败: {response.status_code}")
-            return None
-    except Exception as e:
-        logger.error(f"调用星火API时发生错误: {str(e)}")
-        return None
 
 def is_valid_input(text):
     
@@ -112,6 +69,7 @@ def handle_input():
         # 检查当前时间与上次请求时间的差值
         if current_time - last_request_time < 2:
             logger.info("请求过于频繁，2秒内不再请求")
+            #请求的时机应该设置更加合理
             return jsonify({"status": "success", "suggestions": []})
         
         # 当输入超过4个字符时调用星火API
@@ -129,7 +87,7 @@ def handle_input():
                 logger.error("星火API返回空建议")
                 return jsonify({"status": "error", "error": "获取建议失败"})
         
-        logger.info("输入长度不足2个字符，不调用API")
+        logger.info("输入长度不足4个字符，不调用API")
         return jsonify({"status": "success", "suggestions": []})
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
