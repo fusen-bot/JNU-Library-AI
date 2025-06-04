@@ -114,9 +114,9 @@ def handle_input():
             logger.info("请求过于频繁，2秒内不再请求")
             return jsonify({"status": "success", "suggestions": []})
         
-        # 当输入超过3个字符时调用星火API
-        if len(cleaned_input) >= 3:
-            logger.info("输入长度超过3个字符，开始调用星火API")
+        # 当输入超过4个字符时调用星火API
+        if len(cleaned_input) >= 4:
+            logger.info("输入长度超过4个字符，开始调用星火API")
             # 更新上次请求时间
             last_request_time = current_time
             # 添加延迟以模拟API处理时间
@@ -129,7 +129,7 @@ def handle_input():
                 logger.error("星火API返回空建议")
                 return jsonify({"status": "error", "error": "获取建议失败"})
         
-        logger.info("输入长度不足4个字符，不调用API")
+        logger.info("输入长度不足2个字符，不调用API")
         return jsonify({"status": "success", "suggestions": []})
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
@@ -215,7 +215,7 @@ def inject_monitor_script(driver):
             if (!displayArea) return;
             
             if (!text) {
-                // 当没有内容时显示默认提示
+                // 这个逻辑应该是当检测到用户输入时候和当返回值暂时没有内容时显示默认提示
                 showDisplayArea(displayArea);
                 const defaultText = document.createElement('div');
                 defaultText.style.marginBottom = '8px';
@@ -224,7 +224,7 @@ def inject_monitor_script(driver):
                 defaultText.style.borderRadius = '4px';
                 defaultText.style.cursor = 'text';
                 defaultText.style.color = '#666';
-                defaultText.textContent = '推荐书籍｜热门问题';
+                defaultText.textContent = '正在为你查找相应推荐书籍和热门问题';
                 defaultText.style.textAlign = 'center';
                 displayArea.innerHTML = '';
                 displayArea.appendChild(defaultText);
@@ -540,11 +540,13 @@ def inject_monitor_script(driver):
             
             console.log('捕获到输入:', inputValue);
             
-            if (inputValue.length >= 3) {
+            if (inputValue.length >= 1) {
                 // 显示默认提示
                 updateDisplay('');
-                // 发送请求获取建议
-                sendToServer(inputValue);
+                if (inputValue.length > 3) {
+                    // 发送请求获取建议
+                    sendToServer(inputValue);
+                }
             } else {
                 const displayArea = document.getElementById('suggestion-display');
                 if (displayArea) hideDisplayArea(displayArea);

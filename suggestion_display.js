@@ -34,7 +34,6 @@ function createSuggestionBox() {
         padding-bottom: 5px;
         border-bottom: 1px solid #eee;
     `;
-    title.innerHTML = '<span>智能输入建议</span><span id="suggestion-close" style="cursor:pointer;">×</span>';
     
     // 添加内容区域
     const content = document.createElement('div');
@@ -50,10 +49,7 @@ function createSuggestionBox() {
     suggestionBox.appendChild(content);
     document.body.appendChild(suggestionBox);
     
-    // 添加关闭事件
-    document.getElementById('suggestion-close').addEventListener('click', function() {
-        suggestionBox.style.display = 'none';
-    });
+
     
     return suggestionBox;
 }
@@ -70,13 +66,7 @@ function showSuggestion(suggestion) {
     
     console.log("处理建议内容:", suggestion); // 调试日志
     
-    // 如果建议为空，则显示默认信息
-    if (!suggestion || suggestion.trim() === '') {
-        contentElement.textContent = '暂无相关建议';
-        suggestionBox.style.display = 'block';
-        return;
-    }
-    
+
     // 解析内容，分割书籍和问题部分
     let booksPart = '';
     let questionsPart = '';
@@ -308,10 +298,7 @@ function showSuggestion(suggestion) {
     
     suggestionBox.style.display = 'block';
     
-    // 15秒后自动隐藏（增加了显示时间）
-    setTimeout(() => {
-        suggestionBox.style.display = 'none';
-    }, 15000);
+
 }
 
 // 连接到输入事件，当用户输入时发送到Python服务器
@@ -329,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         const value = e.target.value;
-                        if (value.length > 3) {
+                        if (value.length > 4) {
                             // 请求建议
                             fetch('http://localhost:5001/input', {
                                 method: 'POST',
