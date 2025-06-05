@@ -35,10 +35,11 @@ def get_qwen_suggestion(user_input: str) -> str:
             "content": user_input
         }
     ]
-
+    # 调试：打印完整请求消息
+    logger.debug(f"千问API请求消息: {messages}")
     try:
-        # 使用原有的API调用配置
-        responses = dashscope.Generation.call(
+        # 使用原有的API调用配置，获取流式响应迭代器
+        responses_iter = dashscope.Generation.call(
             model="qwen-max",
             api_key="sk-0cc8e5c849604b5c9704113abc77be7d",
             messages=messages,
@@ -48,27 +49,41 @@ def get_qwen_suggestion(user_input: str) -> str:
             temperature=0.7,
             enable_search=False
         )
-
-        # 收集流式响应的完整内容
+        # 收集流式响应的完整内容并打印调试信息
         full_content = ""
-        for response in responses:
-            if response.status_code == HTTPStatus.OK:
-                # 从流式响应中提取内容
-                if hasattr(response.output, 'choices') and response.output.choices:
-                    delta = response.output.choices[0].get('delta', {})
+        responses_list = []
+        for response in responses_iter:
+            # 保存响应对象以便后续分析
+            responses_list.append(response)
+            # 调试：打印每个流式响应的原始内容
+            logger.debug(
+                f"流式响应: request_id={response.request_id}, status={response.status_code}, code={response.code}, message={response.message}, output={response.output}"
+            )
+            if response.status_code == HTTPStatus.OK and hasattr(response.output, 'choices') and response.output.choices:
+                # 从流式响应中提取内容，兼容 delta 或 message.content
+                choice = response.output.choices[0]
+                content_chunk = None
+                # OpenAI Delta 风格
+                if isinstance(choice, dict):
+                    delta = choice.get('delta', {})
                     if 'content' in delta:
-                        full_content += delta['content']
-            else:
-                logger.error(f'千问API请求失败: Request id: {response.request_id}, Status code: {response.status_code}, error code: {response.code}, error message: {response.message}')
-                return ""
-
+                        content_chunk = delta['content']
+                # dashscope message 风格
+                if content_chunk is None and hasattr(choice, 'message'):
+                    msg = choice.message
+                    if isinstance(msg, dict):
+                        content_chunk = msg.get('content')
+                    else:
+                        content_chunk = getattr(msg, 'content', None)
+                if content_chunk:
+                    full_content += content_chunk
         if full_content:
             logger.info(f"千问API返回建议: {full_content}")
             return full_content
         else:
-            logger.error("千问API返回空内容")
+            # 调试：打印所有流式响应列表
+            logger.error(f"千问API返回空内容，流式响应详情: {responses_list}")
             return ""
-            
     except Exception as e:
         logger.error(f"调用千问API时发生错误: {str(e)}")
         return ""

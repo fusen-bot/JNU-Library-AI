@@ -17,7 +17,7 @@ import re
 # API 配置区域 - 在这里切换不同的后端API
 # ===========================================
 # 可选值: "spark" (星火API) 或 "qwen" (千问API) 或 "openai" (OpenAI API)
-API_BACKEND = "qwen"  # 修改这里来切换API
+API_BACKEND = "spark"  # 修改这里来切换API
 
 # 根据配置导入相应的API函数
 if API_BACKEND == "spark":
@@ -461,12 +461,7 @@ def inject_monitor_script(driver):
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        messages: [{
-                            role: "user",
-                            content: inputValue
-                        }]
-                    })
+                    body: JSON.stringify({ value: inputValue })
                 });
                 
                 if (!response.ok) {
@@ -476,8 +471,10 @@ def inject_monitor_script(driver):
                 const data = await response.json();
                 console.log('服务器响应:', data);
                 
-                if (data.content) {
-                    updateDisplay(data.content, false);
+                // 兼容后端返回的 suggestions 或 content 字段
+                const suggestion = data.suggestions || data.content;
+                if (suggestion) {
+                    updateDisplay(suggestion, false);
                 } else {
                     const displayArea = document.getElementById('suggestion-display');
                     if (displayArea) hideDisplayArea(displayArea);
@@ -622,7 +619,7 @@ if __name__ == "__main__":
     logger.info("启动监控系统...")
     
     # 启动Flask服务
-    flask_thread = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5001, debug=True))
+    flask_thread = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5001, debug=False))
     flask_thread.daemon = True
     flask_thread.start()
     logger.info("Flask服务器已启动在 http://localhost:5001")
