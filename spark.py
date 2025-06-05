@@ -25,39 +25,7 @@ headers = {
 # 请求地址
 url = "https://spark-api-open.xf-yun.com/v1/chat/completions"
 
-app = Flask(__name__)
 
-
-
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-@app.route('/input', methods=['POST', 'OPTIONS'])
-def chat_handler():
-    if request.method == 'OPTIONS':
-        return '', 200
-    try:
-        data = request.json
-        logger.info(f"收到请求数据: {data}")
-        if not data or 'messages' not in data:
-            return jsonify({"error": "无效输入，请求体必须包含 'messages' 字段"}), 400
-        # 只取用户输入内容
-        user_input = data['messages'][0]['content'] if data['messages'] and 'content' in data['messages'][0] else ''
-        assistant_message = get_spark_suggestion(user_input)
-        logger.info(f"处理后的返回内容: {assistant_message}")
-        return jsonify({
-            "role": "assistant",
-            "content": assistant_message,
-            "suggestions": assistant_message
-        })
-    except Exception as e:
-        logger.error(f"发生未知错误: {str(e)}")
-        return jsonify({"error": f"发生未知错误: {str(e)}"}), 500
 
 def get_spark_suggestion(user_input: str) -> str:
     """
@@ -96,5 +64,7 @@ def get_spark_suggestion(user_input: str) -> str:
         return ""
 
 if __name__ == '__main__':
-    logger.info("启动Flask服务器...")
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    # 测试函数
+    test_input = "python编程"
+    result = get_spark_suggestion(test_input)
+    print(f"测试结果: {result}")

@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         const value = e.target.value;
-                        if (value.length > 4) {
+                        if (value.length > 3) {
                             // 请求建议
                             fetch('http://localhost:5001/input', {
                                 method: 'POST',

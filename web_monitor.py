@@ -12,7 +12,25 @@ import threading
 import requests
 import logging
 import re
-from spark import get_spark_suggestion
+
+# ===========================================
+# API 配置区域 - 在这里切换不同的后端API
+# ===========================================
+# 可选值: "spark" (星火API) 或 "qwen" (千问API) 或 "openai" (OpenAI API)
+API_BACKEND = "qwen"  # 修改这里来切换API
+
+# 根据配置导入相应的API函数
+if API_BACKEND == "spark":
+    from spark import get_spark_suggestion as get_suggestion
+    logger_name = "星火API"
+elif API_BACKEND == "qwen":
+    from qwen import get_qwen_suggestion as get_suggestion
+    logger_name = "千问API"
+elif API_BACKEND == "openai":
+    from openai import get_openai_suggestion as get_suggestion
+    logger_name = "OpenAI API"
+else:
+    raise ValueError(f"不支持的API后端: {API_BACKEND}，支持的选项: spark, qwen, openai")
 
 # 配置日志
 logging.basicConfig(
@@ -20,6 +38,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+logger.info(f"当前使用的API后端: {logger_name}")
 
 # Flask服务器，用于接收来自浏览器的请求
 app = Flask(__name__)
@@ -72,19 +91,19 @@ def handle_input():
             #请求的时机应该设置更加合理
             return jsonify({"status": "success", "suggestions": []})
         
-        # 当输入超过4个字符时调用星火API
-        if len(cleaned_input) >= 4:
-            logger.info("输入长度超过4个字符，开始调用星火API")
+        # 当输入超过3个字符时调用星火API
+        if len(cleaned_input) >= 3:
+            logger.info(f"输入长度超过4个字符，开始调用{logger_name}")
             # 更新上次请求时间
             last_request_time = current_time
             # 添加延迟以模拟API处理时间
             time.sleep(1)
-            suggestion = get_spark_suggestion(cleaned_input)
+            suggestion = get_suggestion(cleaned_input)
             if suggestion:
-                logger.info(f"星火API返回建议: {suggestion}")
+                logger.info(f"{logger_name}返回建议: {suggestion}")
                 return jsonify({"status": "success", "suggestions": suggestion})
             else:
-                logger.error("星火API返回空建议")
+                logger.error(f"{logger_name}返回空建议")
                 return jsonify({"status": "error", "error": "获取建议失败"})
         
         logger.info("输入长度不足4个字符，不调用API")
