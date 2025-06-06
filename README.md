@@ -1,20 +1,44 @@
 # 江南大学图书馆检索系统输入词监听与智能AI提示关键词
 
+## 📁 文件结构
+
+```
+.
+├── web_monitor.py             # 主服务，Selenium控制和API服务器
+├── spark.py                   # 星火LLM集成
+├── qwen.py                    # 千问LLM集成
+├── openai.py                  # OpenAI LLM集成
+├── show_books_with_reasons.js # 新版UI组件（用于测试页面）
+├── suggestion_display.js      # 旧版UI组件（用于测试页面）
+├── requirements.txt           # Python依赖
+├── start_services.sh          # 启动脚本
+├── README.md                  # 本文档
+└── tests/
+    ├── test_api_contract.py
+    ├── test_llm_integration.py
+    ├── backend_integration_test.py
+    ├── test_frontend_api.py
+    ├── test_ui_upgrade.py
+    └── test_frontend_integration.html
 这个项目实现本地监听网页输入行为并提供智能反馈提示关键词。
 
 ## 功能特点
 
 - 监听网页中的所有输入字段，包括输入框和文本域（目标网页https://opac.jiangnan.edu.cn/#/Home）
 - 捕获用户输入内容并发送到本地服务器
-- 使用讯飞星火API生成智能输入建议（模型调用教程：https://www.xfyun.cn/doc/spark/HTTP%E8%B0%83%E7%94%A8%E6%96%87%E6%A1%A3.html#_1-%E6%8E%A5%E5%8F%A3%E8%AF%B4%E6%98%8E）
+- 使用大语言模型API生成智能输入建议
 - 在网页上显示实时建议反馈
 
 ## 技术架构
 
-- **Python**: 控制Selenium浏览器和处理请求
-- **Selenium**: 自动化浏览器操作和JS注入
-- **Flask**: 提供本地API服务
-- **JavaScript**: 在网页前端捕获输入事件和显示建议
+- **后端**: `Python` + `Flask`
+  - 作为API服务器，接收前端请求，调用LLM并返回结构化数据。
+- **核心驱动**: `Selenium`
+  - 用于自动化浏览器操作，将前端监控脚本动态注入到目标网页。
+- **前端注入**: `JavaScript`
+  - 注入到目标网页的脚本，负责监听用户输入、调用后端API、并将返回的数据渲染成推荐理由UI。
+- **LLM集成**: `spark.py`, `qwen.py`, `openai.py`
+  - 模块化设计，每个文件负责与一个特定的大模型API进行交互。
 
 ## 安装步骤
 
@@ -39,6 +63,4 @@ python web_monitor.py
 
 3. 当你在网页中输入内容时，系统会自动分析输入并提供建议
 
-需要待改进的地方： 
-1.更新请求 API 响应太频繁了并且不断回传到建议框，但是又不知如何修改才能不影响及时响应
-2.
+
