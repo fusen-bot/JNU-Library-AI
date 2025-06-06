@@ -12,7 +12,43 @@ import threading
 import requests
 import logging
 import re
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from experimental_book_library import find_books_by_task
+
+# ===========================================
+# 异步任务管理
+# ===========================================
+# 全局任务存储，用于管理异步生成的推荐理由
+async_tasks = {}
+# 线程池执行器，用于处理异步LLM调用
+executor = ThreadPoolExecutor(max_workers=3)
+
+def cleanup_old_tasks():
+    """
+    清理超过1小时的旧任务，防止内存泄漏
+    """
+    current_time = time.time()
+    tasks_to_remove = []
+    
+    for task_id, task in async_tasks.items():
+        if current_time - task.get('created_at', 0) > 3600:  # 1小时
+            tasks_to_remove.append(task_id)
+    
+    for task_id in tasks_to_remove:
+        del async_tasks[task_id]
+        logger.info(f"清理过期任务: {task_id}")
+
+# 定期清理任务
+def start_cleanup_timer():
+    """
+    启动定期清理定时器
+    """
+    cleanup_old_tasks()
+    # 每30分钟清理一次
+    timer = threading.Timer(1800, start_cleanup_timer)
+    timer.daemon = True
+    timer.start()
 
 # ===========================================
 # API 配置区域 - 在这里切换不同的后端API
@@ -157,11 +193,40 @@ def get_mock_books_with_reasons(user_query):
     }
     return mock_data
 
+# ===========================================
+# 异步理由生成函数
+# ===========================================
+
+def generate_reasons_async(task_id, matched_books, user_query):
+    """
+    异步生成推荐理由的函数，在后台线程中运行
+    """
+    try:
+        logger.info(f"任务 {task_id}: 开始异步生成推荐理由")
+        # 更新任务状态为处理中
+        async_tasks[task_id]['status'] = 'processing'
+        async_tasks[task_id]['progress'] = '正在生成推荐理由...'
+        
+        # 调用原有的并行LLM生成理由函数
+        response_data = get_books_with_reasons(matched_books, user_query)
+        
+        # 将结果存储到任务中
+        async_tasks[task_id]['status'] = 'completed'
+        async_tasks[task_id]['result'] = response_data
+        async_tasks[task_id]['progress'] = '推荐理由生成完成'
+        logger.info(f"任务 {task_id}: 推荐理由生成完成")
+        
+    except Exception as e:
+        logger.error(f"任务 {task_id}: 生成推荐理由时发生错误: {str(e)}")
+        async_tasks[task_id]['status'] = 'error'
+        async_tasks[task_id]['error'] = str(e)
+        async_tasks[task_id]['progress'] = '生成推荐理由失败'
+
 @app.route('/api/books_with_reasons', methods=['POST'])
 def get_books_with_reasons_api():
     """
-    新的API端点：返回带推荐理由的书籍推荐
-    第二阶段：本地书库匹配 + 并行LLM生成理由
+    新的API端点：立即返回基本书籍信息，异步生成推荐理由
+    第三阶段：快速响应 + 后台异步处理
     """
     try:
         data = request.json
@@ -174,28 +239,106 @@ def get_books_with_reasons_api():
                 "error": "查询内容不能为空且至少包含2个字符"
             }), 400
         
-        # 第一步：从本地实验书库匹配书籍
+        # 第一步：从本地实验书库匹配书籍（快速）
         logger.info(f"在本地书库中搜索匹配: {user_query}")
         matched_books = find_books_by_task(user_query)
         
         if matched_books:
-            logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书。开始并行生成推荐理由...")
-            # 第二步：为匹配到的书籍并行调用LLM生成推荐理由
-            response_data = get_books_with_reasons(matched_books, user_query)
-            logger.info("所有书籍的推荐理由已生成")
-            return jsonify(response_data)
+            logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书")
+            
+            # 生成唯一任务ID
+            task_id = str(uuid.uuid4())
+            
+            # 构建基本书籍信息（立即返回）
+            basic_books = []
+            for i, book in enumerate(matched_books):
+                basic_book = {
+                    "title": book.get('title', f'未知书籍{i+1}'),
+                    "author": book.get('author', '未知作者'),
+                    "isbn": book.get('isbn', f'978711100000{i+1}'),
+                    "cover_url": f"https://example.com/cover{i+1}.jpg",
+                    "reasons_loading": True  # 标记理由正在加载
+                }
+                basic_books.append(basic_book)
+            
+            # 存储任务信息
+            async_tasks[task_id] = {
+                'status': 'pending',
+                'progress': '正在启动异步任务...',
+                'user_query': user_query,
+                'books': matched_books,
+                'created_at': time.time()
+            }
+            
+            # 在后台异步启动LLM理由生成
+            logger.info(f"启动异步任务 {task_id} 生成推荐理由")
+            executor.submit(generate_reasons_async, task_id, matched_books, user_query)
+            
+            # 立即返回基本信息
+            response = {
+                "status": "success",
+                "user_query": user_query,
+                "books": basic_books,
+                "task_id": task_id,
+                "reasons_loading": True,
+                "message": "书籍基本信息已加载，推荐理由正在后台生成中..."
+            }
+            
+            logger.info(f"立即返回基本书籍信息，任务ID: {task_id}")
+            return jsonify(response)
+            
         else:
-            logger.info("本地书库未找到匹配，目前此路径无备用方案。")
-            # 在新架构下，如果本地没有匹配，我们选择不调用昂贵的旧版API
-            # 直接返回一个表示"无特定推荐"的空列表
+            logger.info("本地书库未找到匹配")
             return jsonify({
                 "status": "success",
                 "user_query": user_query,
-                "books": []
+                "books": [],
+                "message": "未找到匹配的书籍"
             })
         
     except Exception as e:
         logger.error(f"处理书籍推荐请求时发生错误: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/api/task_status/<task_id>', methods=['GET'])
+def get_task_status(task_id):
+    """
+    新的API端点：获取异步任务的状态和结果
+    """
+    try:
+        if task_id not in async_tasks:
+            return jsonify({
+                "status": "error",
+                "error": "任务ID不存在"
+            }), 404
+        
+        task = async_tasks[task_id]
+        
+        response = {
+            "task_id": task_id,
+            "status": task['status'],
+            "progress": task['progress']
+        }
+        
+        if task['status'] == 'completed' and 'result' in task:
+            # 任务完成，返回完整的推荐理由
+            result_data = task['result']
+            # 确保任务状态不被结果数据覆盖
+            response['status'] = 'completed'  # 保持任务完成状态
+            response['user_query'] = result_data.get('user_query', '')
+            response['books'] = result_data.get('books', [])
+            response['reasons_loading'] = False
+            
+            # 可选：清理已完成的任务（避免内存泄漏）
+            # del async_tasks[task_id]
+            
+        elif task['status'] == 'error':
+            response['error'] = task.get('error', '未知错误')
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"获取任务状态时发生错误: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 # ===========================================
@@ -249,853 +392,21 @@ def handle_input():
         return jsonify({"status": "error", "error": str(e)}), 500
 
 def inject_monitor_script(driver):
-    monitor_script = """
-    (function() {
-        // 保证脚本只初始化一次的标志
-        if (window.__inputMonitorInitialized) return;
-        window.__inputMonitorInitialized = true;
-        
-        // 添加请求状态追踪变量及加载定时器句柄
-        window.__suggestionsInFlight = false;
-        window.__lastSuggestionsContent = '';
-        window.__loadingTimer = null;
-        
-        console.log('🚀 初始化输入监控系统 - 集成新版推荐理由UI');
-        
-        // ================================
-        // 新版书籍推荐理由UI组件 - 内联版本
-        // ================================
-        function showBooksWithReasonsInline(apiData) {
-            console.log("🎨 使用真实环境新版推荐理由UI组件");
-            console.log("📊 API数据:", apiData);
-            
-            const displayArea = document.getElementById('suggestion-display');
-            if (!displayArea) return;
-            
-            // 清除加载动画
-            if (displayArea._blinkInterval) {
-                clearInterval(displayArea._blinkInterval);
-                displayArea._blinkInterval = null;
-            }
-            
-            if (apiData.status !== 'success' || !apiData.books || apiData.books.length === 0) {
-                showErrorMessageInline(displayArea, "暂无推荐结果");
-                return;
-            }
-            
-            // 清空并重新创建内容
-            displayArea.innerHTML = '';
-            createBooksReasonContainerInline(displayArea, apiData.books);
-            showDisplayArea(displayArea);
-        }
-        
-        function createBooksReasonContainerInline(container, books) {
-            // 1. 创建一个统一的书籍列表容器
-            const booksList = document.createElement('div');
-            booksList.className = 'books-container';
-            booksList.style.cssText = `
-                display: flex;
-                gap: 10px;
-                position: relative;
-                margin-bottom: 16px;
-            `;
-
-            // 限制最多显示3本书
-            const maxBooks = Math.min(books.length, 3);
-            
-            // 2. 循环创建每一本书的基础展示项
-            for (let i = 0; i < maxBooks; i++) {
-                const book = books[i];
-                const bookItem = document.createElement('div');
-                bookItem.className = 'book-item';
-                bookItem.style.cssText = `
-                    flex: 1;
-                    min-width: 0;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 6px;
-                    background-color: #f8f9fa;
-                    cursor: pointer;
-                    position: relative;
-                    transition: all 0.3s ease;
-                `;
-                
-                // 2a. 书籍标题等基础信息
-                const bookHeader = document.createElement('div');
-                bookHeader.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    margin-bottom: 8px;
-                `;
-                
-                // 书籍序号
-                const bookNumber = document.createElement('span');
-                bookNumber.style.cssText = `
-                    background: #05a081;
-                    color: white;
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 10px;
-                    flex-shrink: 0;
-                `;
-                bookNumber.textContent = i + 1;
-                
-                // 书籍标题
-                const bookTitle = document.createElement('span');
-                bookTitle.style.cssText = `
-                    font-weight: bold;
-                    font-size: 12px;
-                    color: #333;
-                    flex: 1;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                `;
-                bookTitle.textContent = `《${book.title}》`;
-                
-                bookHeader.appendChild(bookNumber);
-                bookHeader.appendChild(bookTitle);
-                
-                // 作者信息
-                const bookAuthor = document.createElement('div');
-                bookAuthor.style.cssText = `
-                    font-size: 10px;
-                    color: #666;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                `;
-                bookAuthor.textContent = `作者：${book.author}`;
-                
-                bookItem.appendChild(bookHeader);
-                bookItem.appendChild(bookAuthor);
-
-                // 2b. 不再为每本书创建独立的浮层，只添加到书籍列表中
-                // 添加 bookIndex 数据属性用于后续查找
-                bookItem.dataset.bookIndex = i;
-                booksList.appendChild(bookItem);
-            }
-            
-            container.appendChild(booksList);
-
-            // 2c. 在书籍列表后创建一个共享的、全宽度的详情浮层
-            const sharedDetailPanel = document.createElement('div');
-            sharedDetailPanel.className = 'shared-detail-panel';
-            sharedDetailPanel.style.cssText = `
-                display: none;
-                width: 100%;
-                background: white;
-                border: 1px solid #05a081;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                padding: 20px;
-                margin-top: 10px;
-                border-radius: 8px;
-                opacity: 0;
-                transform: translateY(-10px);
-                transition: opacity 0.3s ease, transform 0.3s ease;
-                box-sizing: border-box;
-                z-index: 10;
-            `;
-            container.appendChild(sharedDetailPanel);
-
-            // 3. 在这里统一添加事件监听器，并传入书籍数据
-            addInteractionHandlersInline(container, books);
-        }
-        
-        // 辅助函数: 创建浮层的详细内容
-        function createDetailContentHTMLInline(book) {
-            // 生成左右分栏布局：
-            let departmentsHTML = '<div style="margin-bottom: 6px;"><strong>📊 各学院借阅率:</strong></div>';
-            book.social_reason.departments.forEach(dept => {
-                const percentage = Math.round(dept.rate * 100);
-                const barWidth = dept.rate * 100;
-                departmentsHTML += `
-                    <div style="margin: 4px 0; font-size: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">${dept.name}</span>
-                            <span style="font-weight: bold; color: #7b68ee;">${percentage}%</span>
-                        </div>
-                        <div style="background: #ddd; height: 3px; border-radius: 2px; margin-top: 2px;">
-                            <div style="background: #7b68ee; height: 100%; width: ${barWidth}%; border-radius: 2px; transition: width 0.3s ease;"></div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            // 修正：使用新的API返回的键名，并正确处理数组
-            const coreConcepts = Array.isArray(book.logical_reason.book_core_concepts) ? book.logical_reason.book_core_concepts.join('、') : book.logical_reason.book_core_concepts;
-            const appFields = Array.isArray(book.logical_reason.application_fields_match) ? book.logical_reason.application_fields_match.join('、') : book.logical_reason.application_fields_match;
-
-            return `
-                <div style="display: flex; gap: 15px;">
-                    <div style="flex: 1;">
-                        <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 逻辑分析</h4>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${book.logical_reason.user_query_intent}</p>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
-                        <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${appFields}</p>
-                    </div>
-                    <div style="flex: 1;">
-                        <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 社交证据</h4>
-                        ${departmentsHTML}
-                    </div>
-                </div>
-            `;
-        }
-
-        // 交互处理函数 - 重构为共享浮层模式
-        function addInteractionHandlersInline(container, books) {
-            const booksListContainer = container.querySelector('.books-container');
-            const allBookItems = booksListContainer.querySelectorAll('.book-item');
-            const sharedDetailPanel = container.querySelector('.shared-detail-panel');
-            let hidePanelTimeout; // 用于延迟隐藏浮层
-            
-            allBookItems.forEach(item => {
-                item.addEventListener('mouseenter', function() {
-                    // 清除可能存在的隐藏定时器
-                    clearTimeout(hidePanelTimeout);
-
-                    // 1. 获取书籍数据并更新共享浮层内容
-                    const bookIndex = parseInt(this.dataset.bookIndex, 10);
-                    const book = books[bookIndex];
-
-                    if (book && sharedDetailPanel) {
-                        // 2. 更新浮层内容
-                        sharedDetailPanel.innerHTML = createDetailContentHTMLInline(book);
-                        
-                        // 3. 显示共享浮层
-                        sharedDetailPanel.style.display = 'block';
-                        setTimeout(() => {
-                            sharedDetailPanel.style.opacity = '1';
-                            sharedDetailPanel.style.transform = 'translateY(0)';
-                        }, 10); // 延迟以触发CSS transition
-                    }
-
-                    // 4. 高亮当前悬停的书籍项，重置其他项
-                    allBookItems.forEach(i => {
-                        if (i !== this) {
-                            i.style.borderColor = '#ddd';
-                            i.style.transform = 'translateY(0)';
-                            i.style.boxShadow = 'none';
-                        }
-                    });
-                    this.style.borderColor = '#05a081';
-                    this.style.transform = 'translateY(-2px)';
-                    this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                });
-            });
-
-            // 隐藏浮层的函数
-            const hidePanel = () => {
-                if (sharedDetailPanel) {
-                    sharedDetailPanel.style.opacity = '0';
-                    sharedDetailPanel.style.transform = 'translateY(-10px)';
-                    setTimeout(() => {
-                        sharedDetailPanel.style.display = 'none';
-                    }, 300);
-                }
-
-                // 重置所有书籍项的样式
-                allBookItems.forEach(item => {
-                    item.style.borderColor = '#ddd';
-                    item.style.transform = 'translateY(0)';
-                    item.style.boxShadow = 'none';
-                });
-            };
-
-            // 鼠标离开整个容器时，延迟隐藏浮层
-            container.addEventListener('mouseleave', () => {
-                // 使用setTimeout给予用户将鼠标从书籍移动到浮层上的时间
-                hidePanelTimeout = setTimeout(hidePanel, 100);
-            });
-
-            // 当鼠标进入共享浮层时，取消隐藏操作
-            if (sharedDetailPanel) {
-                sharedDetailPanel.addEventListener('mouseenter', () => {
-                    clearTimeout(hidePanelTimeout);
-                });
-                
-                // 当鼠标离开共享浮层时，立即隐藏
-                sharedDetailPanel.addEventListener('mouseleave', () => {
-                    hidePanel();
-                });
-            }
-        }
-
-
-        
-        function showErrorMessageInline(container, message) {
-            // 清除加载动画
-            if (container._blinkInterval) {
-                clearInterval(container._blinkInterval);
-                container._blinkInterval = null;
-            }
-            
-            container.innerHTML = '';
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = `
-                padding: 20px;
-                text-align: center;
-                color: #e74c3c;
-                background: #ffe6e6;
-                border-radius: 8px;
-                border: 1px solid #f5c6cb;
-                font-style: italic;
-            `;
-            errorDiv.textContent = message;
-            container.appendChild(errorDiv);
-        }
-        
-        // ================================
-        // 原有监听脚本继续
-        // ================================
-        
-        const targetSelector = '.ant-select-search__field';
-        let lastRequestTime = 0;
-        const REQUEST_DELAY = 2000; 
-        const MAX_RETRIES = 3;
-        const RETRY_DELAY = 2000; 
-        
-        // 创建显示区域
-        function createDisplayArea() {
-            // 先检查是否已存在
-            let displayDiv = document.getElementById('suggestion-display');
-            if (displayDiv) return displayDiv;
-            
-            const inputElement = document.querySelector(targetSelector);
-            if (!inputElement) return null;
-            
-            const parent = inputElement.parentElement;
-            displayDiv = document.createElement('div');
-            displayDiv.id = 'suggestion-display';
-            displayDiv.style.cssText = `
-                position: absolute;
-                left: 0;
-                top: 100%;
-                width: 100%;
-                background-color: #fff;
-                padding: 12px 15px;
-                border-radius: 4px;
-                border: 1px solid #05a081;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                z-index: 9999;
-                font-size: 14px;
-                max-height: 500px;
-                min-height: 50px;
-                overflow-y: auto;
-                margin-top: 4px;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.15s ease;
-                display: none;
-                line-height: 1.6;
-                color: #333;
-                user-select: text;
-                -webkit-user-select: text;
-            `;
-            parent.style.position = 'relative'; // 保证绝对定位基于输入框父元素
-            parent.appendChild(displayDiv);
-            return displayDiv;
-        }
-        
-        function showDisplayArea(displayArea) {
-            if (!displayArea) return;
-            displayArea.style.display = 'block';
-            setTimeout(() => {
-                displayArea.style.opacity = '1';
-                displayArea.style.pointerEvents = 'auto';
-            }, 10);
-        }
-        
-        function hideDisplayArea(displayArea) {
-            if (!displayArea) return;
-            displayArea.style.opacity = '0';
-            displayArea.style.pointerEvents = 'none';
-            setTimeout(() => {
-                displayArea.style.display = 'none';
-            }, 300);
-        }
-        
-        function updateDisplay(text, isInput = true, isError = false) {
-            // 在请求中且已有旧建议且等待时间小于阈值，则保留旧建议
-            if (!text && window.__suggestionsInFlight && window.__lastSuggestionsContent && (Date.now() - lastRequestTime < REQUEST_DELAY)) {
-                return;
-            }
-            const displayArea = document.getElementById('suggestion-display');
-            if (!displayArea) return;
-            
-            if (!text) {
-                // 这个逻辑应该是当检测到用户输入时候和当返回值暂时没有内容时显示默认提示
-                showDisplayArea(displayArea);
-                const defaultText = document.createElement('div');
-                defaultText.style.marginBottom = '8px';
-                defaultText.style.padding = '8px';
-                defaultText.style.backgroundColor = '#f8f9fa';
-                defaultText.style.borderRadius = '4px';
-                defaultText.style.cursor = 'text';
-                defaultText.style.color = '#666';
-                // 改进的加载状态显示
-                displayArea.innerHTML = '';
-                
-                // 创建加载容器
-                const loadingContainer = document.createElement('div');
-                loadingContainer.style.cssText = `
-                    padding: 20px;
-                    text-align: center;
-                    background: linear-gradient(135deg, #f8fffe 0%, #f0f7f5 100%);
-                    border-radius: 8px;
-                    border: 2px solid #05a081;
-                `;
-                
-                // 加载标题
-                const loadingTitle = document.createElement('div');
-                loadingTitle.style.cssText = `
-                    font-weight: bold;
-                    color: #05a081;
-                    margin-bottom: 12px;
-                    font-size: 14px;
-                `;
-                loadingTitle.textContent = '🤖 AI正在分析您的查询...';
-                
-                // 加载动画点
-                const loadingDots = document.createElement('div');
-                loadingDots.style.cssText = `
-                    color: #666;
-                    font-size: 13px;
-                    line-height: 1.5;
-                `;
-                loadingDots.innerHTML = `
-                    <div style="margin-bottom: 8px;">🔍 理解查询意图</div>
-                    <div style="margin-bottom: 8px;">📚 搜索相关书籍</div>
-                    <div style="margin-bottom: 8px;">🧠 生成推荐理由</div>
-                    <div style="color: #05a081; font-weight: bold;">⏳ 预计需要15-30秒...</div>
-                `;
-                
-                loadingContainer.appendChild(loadingTitle);
-                loadingContainer.appendChild(loadingDots);
-                displayArea.appendChild(loadingContainer);
-                
-                // 添加闪烁动画
-                let opacity = 1;
-                const blinkInterval = setInterval(() => {
-                    opacity = opacity === 1 ? 0.6 : 1;
-                    loadingTitle.style.opacity = opacity;
-                }, 800);
-                
-                // 存储interval ID以便后续清除
-                displayArea._blinkInterval = blinkInterval;
-                return;
-            }
-            
-            // 只在有实际内容时显示
-            if (text && !isInput && !isError) {
-                showDisplayArea(displayArea);
-                displayArea.innerHTML = '';
-                
-                console.log("处理建议内容:", text); // 调试日志
-                
-                // 分割处理书籍和问题部分
-                let booksPart = '';
-                let questionsPart = '';
-                
-                // 更严格的格式检查，支持多种格式
-                // 1. 尝试匹配"书籍："和"问题："分隔的标准格式
-                const standardFormat = /书籍[:：](.+?)问题[:：](.+?)$/is;
-                const standardMatch = text.match(standardFormat);
-                
-                if (standardMatch && standardMatch.length >= 3) {
-                    booksPart = standardMatch[1].trim();
-                    questionsPart = standardMatch[2].trim();
-                } else {
-                    // 2. 尝试分别匹配书籍和问题部分
-                    const booksMatch = text.match(/书籍[:：](.+?)(?=问题[:：]|$)/is);
-                    const questionsMatch = text.match(/问题[:：](.+?)$/is);
-                    
-                    if (booksMatch && booksMatch[1]) {
-                        booksPart = booksMatch[1].trim();
-                    }
-                    
-                    if (questionsMatch && questionsMatch[1]) {
-                        questionsPart = questionsMatch[1].trim();
-                    }
-                }
-                
-                console.log("解析结果 - 书籍部分:", booksPart);
-                console.log("解析结果 - 问题部分:", questionsPart);
-                
-                // 如果无法识别格式，则原样显示
-                if (!booksPart && !questionsPart) {
-                    const defaultContainer = document.createElement('div');
-                    defaultContainer.style.marginBottom = '8px';
-                    defaultContainer.style.padding = '8px';
-                    defaultContainer.style.backgroundColor = '#f8f9fa';
-                    defaultContainer.style.borderRadius = '4px';
-                    defaultContainer.style.cursor = 'text';
-                    defaultContainer.textContent = text;
-                    displayArea.appendChild(defaultContainer);
-                    return;
-                }
-                
-                // 创建书籍部分
-                if (booksPart) {
-                    // 创建标题
-                    const booksTitle = document.createElement('div');
-                    booksTitle.style.fontWeight = 'bold';
-                    booksTitle.style.marginBottom = '6px';
-                    booksTitle.style.fontSize = '13px';
-                    booksTitle.style.color = '#333';
-                    booksTitle.textContent = '推荐书籍';
-                    displayArea.appendChild(booksTitle);
-                    
-                    // 创建书籍内容容器
-                    const booksContainer = document.createElement('div');
-                    booksContainer.style.marginBottom = '15px'; // 增加间距
-                    booksContainer.style.padding = '0';
-                    booksContainer.style.display = 'flex';
-                    booksContainer.style.flexWrap = 'wrap';
-                    booksContainer.style.gap = '8px';
-                    
-                    // 尝试分割多本书
-                    const books = booksPart.match(/《[^《》]+》/g) || [booksPart];
-                    
-                    // 限制最多显示3本书
-                    const maxBooks = Math.min(books.length, 3);
-                    
-                    for (let i = 0; i < maxBooks; i++) {
-                        const book = books[i];
-                        // 创建独立的书籍项容器
-                        const bookItem = document.createElement('div');
-                        bookItem.style.flex = '1';
-                        bookItem.style.minWidth = '30%';
-                        bookItem.style.backgroundColor = '#e8f4f2';
-                        bookItem.style.borderRadius = '4px';
-                        bookItem.style.padding = '8px';
-                        bookItem.style.cursor = 'pointer';
-                        bookItem.style.color = '#2a6a5c';
-                        bookItem.style.border = '1px solid #d0e6e2';
-                        bookItem.style.transition = 'all 0.2s ease';
-                        bookItem.setAttribute('data-item-type', 'book');
-                        bookItem.setAttribute('data-item-index', i.toString());
-                        
-                        // 添加悬停效果
-                        bookItem.addEventListener('mouseover', function() {
-                            this.style.backgroundColor = '#d4ebe7';
-                            this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                        });
-                        
-                        bookItem.addEventListener('mouseout', function() {
-                            this.style.backgroundColor = '#e8f4f2';
-                            this.style.boxShadow = 'none';
-                        });
-                        
-                        // 内容布局
-                        const bookContent = document.createElement('div');
-                        bookContent.style.display = 'flex';
-                        bookContent.style.alignItems = 'center';
-                        
-                        // 添加序号圆圈
-                        const bookIndex = document.createElement('span');
-                        bookIndex.style.minWidth = '18px';
-                        bookIndex.style.height = '18px';
-                        bookIndex.style.backgroundColor = '#05a081';
-                        bookIndex.style.color = '#fff';
-                        bookIndex.style.borderRadius = '50%';
-                        bookIndex.style.fontSize = '10px';
-                        bookIndex.style.display = 'flex';
-                        bookIndex.style.alignItems = 'center';
-                        bookIndex.style.justifyContent = 'center';
-                        bookIndex.style.marginRight = '8px';
-                        bookIndex.style.flexShrink = '0';
-                        bookIndex.textContent = (i + 1).toString();
-                        
-                        // 添加文本
-                        const bookText = document.createElement('span');
-                        bookText.style.overflow = 'hidden';
-                        bookText.style.textOverflow = 'ellipsis';
-                        bookText.style.wordBreak = 'break-word'; // 允许在任何字符间断行
-                        bookText.textContent = book.trim();
-                        
-                        bookContent.appendChild(bookIndex);
-                        bookContent.appendChild(bookText);
-                        bookItem.appendChild(bookContent);
-                        booksContainer.appendChild(bookItem);
-                    }
-                    
-                    displayArea.appendChild(booksContainer);
-                }
-                
-                // 创建问题部分
-                if (questionsPart) {
-                    // 创建标题
-                    const questionsTitle = document.createElement('div');
-                    questionsTitle.style.fontWeight = 'bold';
-                    questionsTitle.style.marginBottom = '6px';
-                    questionsTitle.style.fontSize = '13px';
-                    questionsTitle.style.color = '#333';
-                    questionsTitle.textContent = '热门话题';
-                    displayArea.appendChild(questionsTitle);
-                    
-                    // 创建问题内容容器
-                    const questionsContainer = document.createElement('div');
-                    questionsContainer.style.display = 'flex';
-                    questionsContainer.style.flexDirection = 'column';
-                    questionsContainer.style.gap = '8px';
-                    
-                    // 处理问题部分
-                    let questions = [];
-                    if (questionsPart.includes('？') || questionsPart.includes('?')) {
-                        // 尝试分割多个问题 (按问号分割)
-                        questions = questionsPart.split(/[？?]/).filter(q => q.trim());
-                    } else {
-                        // 如果没有问号，则将整个文本作为一个问题
-                        questions = [questionsPart];
-                    }
-                    
-                    // 限制最多显示2个问题
-                    const maxQuestions = Math.min(questions.length, 2);
-                    
-                    for (let i = 0; i < maxQuestions; i++) {
-                        if (!questions[i].trim()) continue;
-                        
-                        // 创建独立的问题项容器
-                        const questionItem = document.createElement('div');
-                        questionItem.style.backgroundColor = '#f0f2f7';
-                        questionItem.style.borderRadius = '4px';
-                        questionItem.style.padding = '8px';
-                        questionItem.style.cursor = 'pointer';
-                        questionItem.style.color = '#3a5ca8';
-                        questionItem.style.border = '1px solid #dce1ec';
-                        questionItem.style.transition = 'all 0.2s ease';
-                        questionItem.setAttribute('data-item-type', 'question');
-                        questionItem.setAttribute('data-item-index', i.toString());
-                        
-                        // 添加悬停效果
-                        questionItem.addEventListener('mouseover', function() {
-                            this.style.backgroundColor = '#e4e8f3';
-                            this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                        });
-                        
-                        questionItem.addEventListener('mouseout', function() {
-                            this.style.backgroundColor = '#f0f2f7';
-                            this.style.boxShadow = 'none';
-                        });
-                        
-                        // 内容布局
-                        const questionContent = document.createElement('div');
-                        questionContent.style.display = 'flex';
-                        questionContent.style.alignItems = 'center';
-                        
-                        // 添加序号圆圈
-                        const questionIndex = document.createElement('span');
-                        questionIndex.style.minWidth = '18px';
-                        questionIndex.style.height = '18px';
-                        questionIndex.style.backgroundColor = '#4671d5';
-                        questionIndex.style.color = '#fff';
-                        questionIndex.style.borderRadius = '50%';
-                        questionIndex.style.fontSize = '10px';
-                        questionIndex.style.display = 'flex';
-                        questionIndex.style.alignItems = 'center';
-                        questionIndex.style.justifyContent = 'center';
-                        questionIndex.style.marginRight = '8px';
-                        questionIndex.style.flexShrink = '0';
-                        questionIndex.textContent = (i + 1).toString();
-                        
-                        // 添加文本
-                        const questionText = document.createElement('span');
-                        questionText.style.overflow = 'hidden';
-                        questionText.style.textOverflow = 'ellipsis';
-                        questionText.style.wordBreak = 'break-word'; // 允许在任何字符间断行
-                        
-                        // 只有在不是原始文本结尾处的问题才添加问号
-                        if (i < questions.length - 1 || questionsPart.endsWith('？') || questionsPart.endsWith('?')) {
-                            questionText.textContent = questions[i].trim() + '？';
-                        } else {
-                            questionText.textContent = questions[i].trim();
-                        }
-                        
-                        questionContent.appendChild(questionIndex);
-                        questionContent.appendChild(questionText);
-                        questionItem.appendChild(questionContent);
-                        questionsContainer.appendChild(questionItem);
-                    }
-                    
-                    displayArea.appendChild(questionsContainer);
-                }
-            } else {
-                hideDisplayArea(displayArea);
-            }
-        }
-        
-        async function sendToServer(inputValue, retryCount = 0) {
-            // 标记请求开始，并设置加载延迟定时器
-            window.__suggestionsInFlight = true;
-            // 清除上一轮加载定时器
-            if (window.__loadingTimer) clearTimeout(window.__loadingTimer);
-            // 等待超时后显示默认提示
-            window.__loadingTimer = setTimeout(() => {
-                if (window.__suggestionsInFlight) {
-                    updateDisplay('', false);
-                }
-            }, REQUEST_DELAY);
-            const now = Date.now();
-            if (now - lastRequestTime < REQUEST_DELAY) {
-                console.log('请求过于频繁，等待中...');
-                await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
-            }
-            lastRequestTime = now;
-            
-            try {
-                const response = await fetch('http://localhost:5001/api/books_with_reasons', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ query: inputValue })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('🔍 服务器响应（新API）:', data);
-                
-                // 处理新的API响应格式 - 使用新版UI组件
-                if (data.status === 'success' && data.books && data.books.length > 0) {
-                    // ✨ 使用新版推荐理由UI组件
-                    showBooksWithReasonsInline(data);
-                    
-                    // 更新状态
-                    window.__lastSuggestionsContent = JSON.stringify(data);
-                    clearTimeout(window.__loadingTimer);
-                    window.__suggestionsInFlight = false;
-                    
-                    // 在控制台详细打印推荐理由
-                    console.log('📋 推荐详情:');
-                    data.books.forEach((book, index) => {
-                        console.log(`📚 书籍${index + 1}: ${book.title} (${book.author})`);
-                        console.log("  🧠 逻辑分析:", book.logical_reason);
-                        console.log("  👥 社交证据:", book.social_reason);
-                        console.log("  ---");
-                    });
-                } else {
-                    console.warn('⚠️ 新API返回格式异常:', data);
-                    const displayArea = document.getElementById('suggestion-display');
-                    if (displayArea) {
-                        showErrorMessageInline(displayArea, data.error || '暂无推荐结果');
-                        showDisplayArea(displayArea);
-                    }
-                    // 请求失败或无建议，清除加载定时器并重置请求状态
-                    clearTimeout(window.__loadingTimer);
-                    window.__suggestionsInFlight = false;
-                }
-            } catch (error) {
-                console.error('请求失败:', error);
-                if (retryCount < MAX_RETRIES) {
-                    const retryDelay = RETRY_DELAY * Math.pow(2, retryCount);
-                    console.log(`重试中... (${retryCount + 1}/${MAX_RETRIES}), 等待 ${retryDelay}ms`);
-                    await new Promise(resolve => setTimeout(resolve, retryDelay));
-                    return sendToServer(inputValue, retryCount + 1);
-                }
-            }
-        }
-        
-        // 去除旧的事件监听(防止重复绑定)
-        function removeOldListeners() {
-            const inputs = document.querySelectorAll(targetSelector);
-            inputs.forEach(input => {
-                if (input.hasAttribute('data-monitored')) {
-                    const oldHandler = input._inputHandler;
-                    if (oldHandler) {
-                        input.removeEventListener('input', oldHandler);
-                    }
-                    input.removeAttribute('data-monitored');
-                }
-            });
-        }
-        
-        function handleInput(event) {
-            const inputValue = event.target.value.trim();
-            if (!inputValue) {
-                const displayArea = document.getElementById('suggestion-display');
-                if (displayArea) hideDisplayArea(displayArea);
-                return;
-            }
-            
-            console.log('捕获到输入:', inputValue);
-            
-            if (inputValue.length >= 1) {
-                // 显示默认提示
-                updateDisplay('');
-                if (inputValue.length > 3) {
-                    // 发送请求获取建议
-                    sendToServer(inputValue);
-                }
-            } else {
-                const displayArea = document.getElementById('suggestion-display');
-                if (displayArea) hideDisplayArea(displayArea);
-            }
-        }
-
-        // 监听动态加载的输入框
-        function setupMonitor() {
-            // 先清除旧的监听器
-            removeOldListeners();
-            
-            const inputElement = document.querySelector(targetSelector);
-            if (inputElement && !inputElement.hasAttribute('data-monitored')) {
-                console.log('找到输入框，设置监听器');
-                inputElement.setAttribute('data-monitored', 'true');
-                // 存储处理函数的引用以便后续移除
-                inputElement._inputHandler = handleInput;
-                inputElement.addEventListener('input', inputElement._inputHandler);
-                // 重新创建显示区域
-                createDisplayArea();
-            }
-        }
-
-        // 创建观察器监听DOM变化
-        const observer = new MutationObserver((mutations) => {
-            setupMonitor();
-        });
-
-        // 开始观察整个文档
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-        
-        // 监听路由变化(前进/后退)
-        window.addEventListener('popstate', function() {
-            console.log('检测到路由变化(popstate)，重新设置监听器');
-            // 等待DOM更新完成再重新绑定
-            setTimeout(setupMonitor, 500);
-        });
-        
-        // 监听hash变化(如果网站使用hash路由)
-        window.addEventListener('hashchange', function() {
-            console.log('检测到hash变化，重新设置监听器');
-            // 等待DOM更新完成再重新绑定
-            setTimeout(setupMonitor, 500);
-        });
-        
-        // 定时检查保证监听器正常工作
-        setInterval(setupMonitor, 1000);
-
-        // 初始检查
-        setupMonitor();
-        
-        console.log('监听脚本加载完成，等待输入框出现');
-    })();
-    """
-    
+    monitor_script = ""
     try:
+        # 读取两个核心JS文件的内容
+        with open('show_books_with_reasons.js', 'r', encoding='utf-8') as f:
+            monitor_script += f.read()
+        
+        with open('suggestion_display.js', 'r', encoding='utf-8') as f:
+            monitor_script += f.read()
+            
         driver.execute_script(monitor_script)
-        logger.info("监听脚本注入成功")
+        logger.info("成功注入组合的外部JS脚本")
+
+    except FileNotFoundError as e:
+        logger.error(f"JS文件未找到: {e}, 请确保 show_books_with_reasons.js 和 suggestion_display.js 在同一目录下。")
+        raise
     except Exception as e:
         logger.error(f"注入监听脚本时发生错误: {str(e)}")
         raise
@@ -1132,6 +443,10 @@ def start_browser():
 if __name__ == "__main__":
     logger.info("启动监控系统...")
     
+    # 启动任务清理定时器
+    start_cleanup_timer()
+    logger.info("任务清理定时器已启动")
+    
     # 启动Flask服务
     flask_thread = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5001, debug=False))
     flask_thread.daemon = True
@@ -1146,4 +461,6 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("正在关闭系统...")
+        # 关闭线程池
+        executor.shutdown(wait=False)
         driver.quit() 

@@ -21,7 +21,7 @@ BOOK_LIBRARY = {
             "isbn": "9787121181184"
         }
     ],
-    "算法": [
+    "算法科学": [
         {
             "title": "算法导论",
             "author": "Thomas H. Cormen, Charles E. Leiserson",

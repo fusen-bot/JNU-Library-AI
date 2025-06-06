@@ -385,3 +385,347 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('建议显示脚本已加载');
 });
+
+(function() {
+    // 保证脚本只初始化一次的标志
+    if (window.__inputMonitorInitialized) return;
+    window.__inputMonitorInitialized = true;
+    
+    // 添加请求状态追踪变量及加载定时器句柄
+    window.__suggestionsInFlight = false;
+    window.__lastSuggestionsContent = '';
+    window.__loadingTimer = null;
+    
+    console.log('🚀 初始化输入监控系统 - 集成新版推荐理由UI');
+    
+    // ================================
+    // 监控和显示逻辑
+    // ================================
+    
+    const targetSelector = '.ant-select-search__field';
+    let lastRequestTime = 0;
+    const REQUEST_DELAY = 2000; 
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; 
+    
+    // 创建显示区域
+    function createDisplayArea() {
+        // 先检查是否已存在
+        let displayDiv = document.getElementById('suggestion-display');
+        if (displayDiv) return displayDiv;
+        
+        const inputElement = document.querySelector(targetSelector);
+        if (!inputElement) return null;
+        
+        const parent = inputElement.parentElement;
+        displayDiv = document.createElement('div');
+        displayDiv.id = 'suggestion-display';
+        displayDiv.style.cssText = `
+            position: absolute;
+            left: 0;
+            top: 100%;
+            width: 100%;
+            background-color: #fff;
+            padding: 12px 15px;
+            border-radius: 4px;
+            border: 1px solid #05a081;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 9999;
+            font-size: 14px;
+            max-height: 500px;
+            min-height: 50px;
+            overflow-y: auto;
+            margin-top: 4px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            display: none;
+            line-height: 1.6;
+            color: #333;
+            user-select: text;
+            -webkit-user-select: text;
+        `;
+        parent.style.position = 'relative'; // 保证绝对定位基于输入框父元素
+        parent.appendChild(displayDiv);
+        return displayDiv;
+    }
+    
+    // ===========================================
+    // 异步任务轮询管理
+    // ===========================================
+    let currentPollingTaskId = null;
+    let pollingInterval = null;
+    
+    function startTaskPolling(taskId) {
+        console.log(`🔄 开始轮询任务状态: ${taskId}`);
+        currentPollingTaskId = taskId;
+        
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+        
+        pollTaskStatus(taskId);
+        
+        pollingInterval = setInterval(() => {
+            pollTaskStatus(taskId);
+        }, 3000);
+    }
+    
+    function stopTaskPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+        currentPollingTaskId = null;
+        console.log('⏹️ 停止任务轮询');
+    }
+    
+    async function pollTaskStatus(taskId) {
+        try {
+            const response = await fetch(`http://localhost:5001/api/task_status/${taskId}`);
+            if (!response.ok) {
+                console.error(`轮询失败: ${response.status}`);
+                stopTaskPolling();
+                return;
+            }
+            
+            const taskData = await response.json();
+            console.log(`📊 任务 ${taskId} 状态:`, taskData.status, '-', taskData.progress);
+            
+            if (taskData.status === 'completed') {
+                console.log('🎉 任务完成，更新UI');
+                stopTaskPolling();
+                updateDisplayWithCompletedReasons(taskData);
+            } else if (taskData.status === 'error') {
+                console.error('❌ 任务失败:', taskData.error);
+                stopTaskPolling();
+                showTaskError(taskData.error);
+            }
+        } catch (error) {
+            console.error('轮询请求失败:', error);
+            stopTaskPolling();
+        }
+    }
+    
+    function updateDisplayWithCompletedReasons(taskData) {
+        const displayArea = document.getElementById('suggestion-display');
+        if (!displayArea) return;
+        
+        console.log('📚 更新完整推荐理由:', taskData.books);
+        
+        const bookItems = displayArea.querySelectorAll('.book-item');
+        bookItems.forEach((item, index) => {
+            const book = taskData.books[index];
+            if (!book) return;
+
+            const loadingIndicator = item.querySelector('.loading-indicator');
+            if (loadingIndicator) loadingIndicator.remove();
+            
+            const loadingText = item.querySelector('div[style*="font-size: 9px"]');
+            if (loadingText) loadingText.remove();
+            
+            const completedIndicator = document.createElement('div');
+            completedIndicator.className = 'completed-indicator';
+            completedIndicator.style.cssText = `
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                width: 12px;
+                height: 12px;
+                background: #28a745;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 8px;
+            `;
+            completedIndicator.innerHTML = '✓';
+            item.appendChild(completedIndicator);
+            
+            item.style.borderColor = '#05a081';
+            item.style.backgroundColor = '#f8f9fa';
+            item.style.cursor = 'pointer';
+        });
+        
+        addInteractionHandlers(displayArea, taskData.books);
+        showCompletionMessage(displayArea);
+    }
+    
+    function showCompletionMessage(displayArea) {
+        const completionMsg = document.createElement('div');
+        completionMsg.style.cssText = `
+            background: #d4edda;
+            color: #155724;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 10px;
+            border: 1px solid #c3e6cb;
+            text-align: center;
+        `;
+        completionMsg.textContent = '✨ 想知道推荐理由？将鼠标悬停在书籍上查看详细分析';
+        
+        displayArea.appendChild(completionMsg);
+        
+        setTimeout(() => {
+            if (completionMsg.parentNode) {
+                completionMsg.remove();
+            }
+        }, 5000);
+    }
+    
+    function showTaskError(error) {
+        const displayArea = document.getElementById('suggestion-display');
+        if (!displayArea) return;
+        
+        const errorMsg = document.createElement('div');
+        errorMsg.style.cssText = `
+            background: #f8d7da;
+            color: #721c24;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 10px;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+        `;
+        errorMsg.textContent = `❌ 推荐理由生成失败: ${error}`;
+        displayArea.appendChild(errorMsg);
+    }
+
+    async function sendToServer(inputValue, retryCount = 0) {
+        window.__suggestionsInFlight = true;
+        if (window.__loadingTimer) clearTimeout(window.__loadingTimer);
+        stopTaskPolling();
+        
+        const now = Date.now();
+        if (now - lastRequestTime < REQUEST_DELAY) {
+            console.log('请求过于频繁，等待中...');
+            await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY - (now - lastRequestTime)));
+        }
+        lastRequestTime = Date.now();
+        
+        try {
+            const response = await fetch('http://localhost:5001/api/books_with_reasons', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: inputValue })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('🔍 服务器响应（异步API）:', data);
+            
+            window.__suggestionsInFlight = false;
+            clearTimeout(window.__loadingTimer);
+
+            if (data.status === 'success' && data.books && data.books.length > 0) {
+                showBooksWithReasons(data);
+                window.__lastSuggestionsContent = JSON.stringify(data);
+                if (data.task_id && data.reasons_loading) {
+                    console.log('📡 启动异步理由轮询，任务ID:', data.task_id);
+                    startTaskPolling(data.task_id);
+                }
+            } else {
+                const displayArea = document.getElementById('suggestion-display');
+                if (displayArea) {
+                    showErrorMessage(displayArea, data.error || data.message || '暂无推荐结果');
+                    showDisplayArea(displayArea);
+                }
+            }
+        } catch (error) {
+            console.error('请求失败:', error);
+            window.__suggestionsInFlight = false;
+            if (retryCount < MAX_RETRIES) {
+                const retryDelay = RETRY_DELAY * Math.pow(2, retryCount);
+                console.log(`重试中... (${retryCount + 1}/${MAX_RETRIES}), 等待 ${retryDelay}ms`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return sendToServer(inputValue, retryCount + 1);
+            } else {
+                const displayArea = document.getElementById('suggestion-display');
+                if (displayArea) {
+                    showErrorMessage(displayArea, '多次尝试后无法连接到推荐服务。');
+                    showDisplayArea(displayArea);
+                }
+                stopTaskPolling();
+            }
+        }
+    }
+    
+    function handleInput(event) {
+        const inputValue = event.target.value.trim();
+        const displayArea = document.getElementById('suggestion-display');
+
+        if (inputValue.length < 3) {
+            if (displayArea) hideDisplayArea(displayArea);
+            stopTaskPolling();
+            return;
+        }
+        
+        console.log('捕获到输入:', inputValue);
+        sendToServer(inputValue);
+    }
+
+    function setupMonitor() {
+        const inputElement = document.querySelector(targetSelector);
+        if (inputElement && !inputElement.hasAttribute('data-monitored')) {
+            console.log('找到输入框，设置监听器');
+            inputElement.setAttribute('data-monitored', 'true');
+            
+            let debounceTimer;
+            inputElement.addEventListener('input', (event) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    handleInput(event);
+                }, 300);
+            });
+
+            createDisplayArea();
+
+            document.addEventListener('click', function(event) {
+                const displayArea = document.getElementById('suggestion-display');
+                const isClickInside = displayArea && displayArea.contains(event.target);
+                const isClickOnInput = inputElement.contains(event.target);
+                if (!isClickInside && !isClickOnInput) {
+                    if (displayArea) hideDisplayArea(displayArea);
+                }
+            });
+        }
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length) {
+                if (document.querySelector(targetSelector)) {
+                    setupMonitor();
+                    break;
+                }
+            }
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    setInterval(setupMonitor, 2000);
+
+    setupMonitor();
+    
+    console.log('监听脚本加载完成，等待输入框出现');
+})();
+
+function showErrorMessage(container, message) {
+    // 清除加载动画
+    
+    
+    container.innerHTML = '';
+}
+
