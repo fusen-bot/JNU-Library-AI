@@ -1,6 +1,6 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 Always declare types to improve code clarity and assist Cursor’s understanding.

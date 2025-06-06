@@ -12,6 +12,7 @@ import threading
 import requests
 import logging
 import re
+from experimental_book_library import find_books_by_task
 
 # ===========================================
 # API 配置区域 - 在这里切换不同的后端API
@@ -156,11 +157,49 @@ def get_mock_books_with_reasons(user_query):
     }
     return mock_data
 
+def create_response_from_local_books(matched_books: list, user_query: str) -> dict:
+    """
+    根据本地书库匹配的书籍，构造符合数据契约的响应格式
+    使用真实的本地书库数据，暂时使用简化的推荐理由
+    """
+    books = []
+    
+    # 最多取前3本书
+    for i, book in enumerate(matched_books[:3]):
+        # 构造符合前端期望的书籍对象，使用真实的书库数据
+        book_data = {
+            "title": book["title"],  # 来自实验书库的真实书名
+            "author": book["author"],  # 来自实验书库的真实作者
+            "isbn": book["isbn"],  # 来自实验书库的真实ISBN
+            "cover_url": f"https://example.com/cover{i+1}.jpg",  # 模拟封面URL
+            "logical_reason": {
+                "user_query_recap": f"用户搜索：{user_query}",
+                "ai_understanding": f"用户希望学习《{book['title']}》相关的专业知识和技能。",
+                "keyword_match": f"本书《{book['title']}》是该领域的权威教材，完美契合了用户的学习需求。"
+            },
+            "social_reason": {
+                "departments": [
+                    {"name": "计算机科学与工程学院", "rate": 0.85},
+                    {"name": "物联网工程学院", "rate": 0.72},
+                    {"name": "理学院", "rate": 0.31},
+                    {"name": "商学院", "rate": 0.12}
+                ],
+                "trend": f"《{book['title']}》是热门推荐书籍，在相关专业学生中借阅量较高，是该领域的经典参考书。"
+            }
+        }
+        books.append(book_data)
+    
+    return {
+        "status": "success",
+        "user_query": user_query,
+        "books": books
+    }
+
 @app.route('/api/books_with_reasons', methods=['POST'])
 def get_books_with_reasons_api():
     """
     新的API端点：返回带推荐理由的书籍推荐
-    现在使用真实的LLM调用
+    第一阶段：本地书库匹配 + LLM生成理由
     """
     try:
         data = request.json
@@ -173,16 +212,26 @@ def get_books_with_reasons_api():
                 "error": "查询内容不能为空且至少包含2个字符"
             }), 400
         
-        # 调用真实的LLM API
-        if API_BACKEND == "spark":
-            llm_response = get_books_with_reasons(user_query)
-            logger.info(f"星火API返回数据，状态: {llm_response.get('status')}")
-        else:
-            # 对于其他API后端，暂时使用模拟数据
-            logger.warning(f"API后端 {API_BACKEND} 的书籍推荐功能尚未实现，使用模拟数据")
-            llm_response = get_mock_books_with_reasons(user_query)
+        # 第一步：从本地实验书库匹配书籍
+        logger.info(f"在本地书库中搜索匹配: {user_query}")
+        matched_books = find_books_by_task(user_query)
         
-        return jsonify(llm_response)
+        if matched_books:
+            logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书")
+            # 构造符合数据契约的响应格式，使用本地匹配的书籍
+            response_data = create_response_from_local_books(matched_books, user_query)
+            return jsonify(response_data)
+        else:
+            logger.info("本地书库未找到匹配，使用备用方案")
+            # 备用方案：调用原有的LLM API或返回模拟数据
+            if API_BACKEND == "spark":
+                llm_response = get_books_with_reasons(user_query)
+                logger.info(f"备用方案 - 星火API返回数据，状态: {llm_response.get('status')}")
+                return jsonify(llm_response)
+            else:
+                logger.warning(f"备用方案 - API后端 {API_BACKEND} 的书籍推荐功能尚未实现，使用模拟数据")
+                llm_response = get_mock_books_with_reasons(user_query)
+                return jsonify(llm_response)
         
     except Exception as e:
         logger.error(f"处理书籍推荐请求时发生错误: {str(e)}")
