@@ -4,6 +4,7 @@ import requests
 import json
 import time
 import logging
+import concurrent.futures
 
 # 配置日志
 logging.basicConfig(
@@ -25,87 +26,139 @@ headers = {
 url = "https://spark-api-open.xf-yun.com/v1/chat/completions"
 
 # ===========================================
-# 新增：带推荐理由的书籍推荐功能
+# 第二阶段重构：为单本书生成推荐理由
 # ===========================================
 
-def get_spark_books_with_reasons(user_query: str) -> dict:
+def get_reason_for_single_book(book: dict, user_query: str) -> dict:
     """
-    调用星火API，返回带推荐理由的书籍推荐数据
-    返回格式符合新的数据契约
+    调用星火API，为单本书生成推荐理由。
+    使用新的、轻量级的、解耦的提示词。
     """
-    logger.info(f"正在向星火API发送书籍推荐理由请求，用户输入: {user_query}")
+    book_title = book.get('title', '未知书籍')
+    book_author = book.get('author', '未知作者')
     
-    # 构建新的 Prompt（目前的提示词太长了以及返回的也是，能否缩减以减少延迟）
-    system_prompt = """你是江南大学图书馆的资深图书推荐专家。你的任务是根据用户的检索词推荐3本相关书籍，并为每本书生成推荐理由。
-    
+    logger.info(f"为书籍《{book_title}》生成推荐理由 (用户查询: {user_query})")
+
+    # 新版系统提示词 (来自Modification_Best_Practices.md)
+    system_prompt = """你是江南大学图书馆的资深图书推荐专家。你的任务是为一本指定的书籍生成精准、吸引人的推荐理由。
+
 请严格按照以下JSON格式返回结果，不要包含任何解释性文字，只返回一个完整的JSON对象：
 
 {
-  "recommendations": [
-    {
-      "book_title": "书名",
-      "book_author": "作者姓名", 
-      "logical_reason": {
-        "user_query_intent": "你的检索意图",
-        "book_core_concepts": ["本书核心概念1", "本书核心概念2"],
-        "application_fields_match": ["应用领域匹配1", "应用领域匹配2"]
-      },
-      "social_reason": {
-        "departments": [
-          {"name": "计算机科学与工程学院", "rate": 0.15},
-          {"name": "物联网工程学院", "rate": 0.72},
-          {"name": "理学院", "rate": 0.31},
-          {"name": "商学院", "rate": 0.12}
-        ]
-      }
-    }
-  ]
-}
+  "logical_reason": {
+    "user_query_intent": "对用户检索意图的分析",
+    "book_core_concepts": ["本书的核心概念1", "本书的核心概念2"],
+    "application_fields_match": ["本书与哪些应用领域匹配1", "本书与哪些应用领域匹配2"]
+  },
+  "social_reason": {
+    "departments": [
+      {"name": "计算机科学与工程学院", "rate": 0.85},
+      {"name": "物联网工程学院", "rate": 0.72},
+      {"name": "理学院", "rate": 0.31}
+    ]
+  }
+}"""
 
-要求：
-1. 推荐3本与用户检索词最相关的书籍
-2. logical_reason要体现你的专业分析能力，包含用户意图、书籍核心概念和应用领域匹配。
-3. social_reason中的departments要包含普通大学的学院名称，借阅率用0到1之间的小数，不包含趋势描述。"""
-
-    user_prompt = f"用户检索词是：\"{user_query}\"。请为此推荐3本最相关的书籍并生成推荐理由。"
+    # 新版用户提示词
+    user_prompt = f'用户检索词是："{user_query}"。请为书籍《{book_title}》（作者：{book_author}）生成推荐理由。'
     
     payload = {
         "model": "generalv3",
         "messages": [
-            {
-                "role": "system", 
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_prompt
-            }
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.3,  # 降低温度确保输出更稳定
-        "max_tokens": 800   # 增加token限制支持更长的回复
+        "temperature": 0.3,
+        "max_tokens": 400  # 减少token，因为任务更简单
     }
     
     try:
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        logger.info(f"星火API响应状态码: {response.status_code}")
-        
         if response.status_code == 200:
             result = response.json()
             raw_content = result['choices'][0]['message']['content']
-            logger.info(f"星火API原始返回: {raw_content}")
             
-            # 解析LLM返回的JSON
-            parsed_data = parse_spark_json_response(raw_content, user_query)
-            return parsed_data
+            # 清理和解析JSON
+            # 尝试提取JSON部分
+            if '```json' in raw_content:
+                json_start = raw_content.find('```json') + 7
+                json_end = raw_content.find('```', json_start)
+                content = raw_content[json_start:json_end].strip()
+            else:
+                content = raw_content.strip()
+
+            reason_data = json.loads(content)
+            logger.info(f"成功为《{book_title}》生成并解析推荐理由")
+            return reason_data
             
         else:
-            logger.error(f"星火API请求失败: {response.status_code}")
-            logger.error(f"响应内容: {response.text}")
-            return create_error_response("API请求失败")
+            logger.error(f"为《{book_title}》生成理由时API请求失败: {response.status_code}")
+            return create_default_reasons(user_query, book_title)
             
     except Exception as e:
-        logger.error(f"调用星火API时发生错误: {str(e)}")
-        return create_error_response(f"调用API时发生错误: {str(e)}")
+        logger.error(f"为《{book_title}》生成理由时发生错误: {str(e)}")
+        return create_default_reasons(user_query, book_title)
+
+# ===========================================
+# 重构旧函数，改为并行调用
+# ===========================================
+
+def get_spark_books_with_reasons(books: list, user_query: str) -> dict:
+    """
+    调用星火API，为多本书并行生成推荐理由。
+    这是重构后的函数，输入为书籍列表。
+    """
+    logger.info(f"开始为 {len(books)} 本书并行生成推荐理由")
+    
+    final_books = []
+    
+    # 使用线程池并行处理API请求
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(books)) as executor:
+        # 为每本书提交一个任务
+        future_to_book = {executor.submit(get_reason_for_single_book, book, user_query): book for book in books}
+        
+        for future in concurrent.futures.as_completed(future_to_book):
+            book = future_to_book[future]
+            try:
+                # 获取AI生成的推荐理由
+                reason_data = future.result()
+                
+                # 组合书籍信息和推荐理由
+                book_with_reason = book.copy() # 复制基础信息
+                book_with_reason.update(reason_data) # 添加理由
+                book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg" # 模拟封面
+                
+                final_books.append(book_with_reason)
+                
+            except Exception as exc:
+                logger.error(f"处理书籍《{book.get('title')}》时产生异常: {exc}")
+                # 即使单个请求失败，也添加带有默认理由的书籍，保证返回数量
+                book_with_reason = book.copy()
+                book_with_reason.update(create_default_reasons(user_query, book.get('title')))
+                book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg"
+                final_books.append(book_with_reason)
+
+    logger.info(f"已完成所有书籍的推荐理由生成")
+    return {
+        "status": "success",
+        "user_query": user_query,
+        "books": final_books
+    }
+
+
+def create_default_reasons(user_query, book_title):
+    """为单个书籍创建默认的推荐理由"""
+    return {
+        "logical_reason": {
+            "user_query_intent": f"分析用户查询 '{user_query}' 的意图时出错。",
+            "book_core_concepts": ["无法生成核心概念"],
+            "application_fields_match": ["无法生成应用领域匹配"]
+        },
+        "social_reason": {
+            "departments": [{"name": "理学院", "rate": 0.1}]
+        }
+    }
+
 
 def parse_spark_json_response(raw_content: str, user_query: str) -> dict:
     """
@@ -242,7 +295,7 @@ def create_fallback_response(user_query: str) -> dict:
     }
 
 # ===========================================
-# 原有函数保持不变
+# 原有函数保持不变 (但现在不再直接被新流程调用)
 # ===========================================
 
 def get_spark_suggestion(user_input: str) -> str:

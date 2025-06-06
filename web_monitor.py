@@ -157,49 +157,11 @@ def get_mock_books_with_reasons(user_query):
     }
     return mock_data
 
-def create_response_from_local_books(matched_books: list, user_query: str) -> dict:
-    """
-    根据本地书库匹配的书籍，构造符合数据契约的响应格式
-    使用真实的本地书库数据，暂时使用简化的推荐理由
-    """
-    books = []
-    
-    # 最多取前3本书
-    for i, book in enumerate(matched_books[:3]):
-        # 构造符合前端期望的书籍对象，使用真实的书库数据
-        book_data = {
-            "title": book["title"],  # 来自实验书库的真实书名
-            "author": book["author"],  # 来自实验书库的真实作者
-            "isbn": book["isbn"],  # 来自实验书库的真实ISBN
-            "cover_url": f"https://example.com/cover{i+1}.jpg",  # 模拟封面URL
-            "logical_reason": {
-                "user_query_recap": f"用户搜索：{user_query}",
-                "ai_understanding": f"用户希望学习《{book['title']}》相关的专业知识和技能。",
-                "keyword_match": f"本书《{book['title']}》是该领域的权威教材，完美契合了用户的学习需求。"
-            },
-            "social_reason": {
-                "departments": [
-                    {"name": "计算机科学与工程学院", "rate": 0.85},
-                    {"name": "物联网工程学院", "rate": 0.72},
-                    {"name": "理学院", "rate": 0.31},
-                    {"name": "商学院", "rate": 0.12}
-                ],
-                "trend": f"《{book['title']}》是热门推荐书籍，在相关专业学生中借阅量较高，是该领域的经典参考书。"
-            }
-        }
-        books.append(book_data)
-    
-    return {
-        "status": "success",
-        "user_query": user_query,
-        "books": books
-    }
-
 @app.route('/api/books_with_reasons', methods=['POST'])
 def get_books_with_reasons_api():
     """
     新的API端点：返回带推荐理由的书籍推荐
-    第一阶段：本地书库匹配 + LLM生成理由
+    第二阶段：本地书库匹配 + 并行LLM生成理由
     """
     try:
         data = request.json
@@ -217,21 +179,20 @@ def get_books_with_reasons_api():
         matched_books = find_books_by_task(user_query)
         
         if matched_books:
-            logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书")
-            # 构造符合数据契约的响应格式，使用本地匹配的书籍
-            response_data = create_response_from_local_books(matched_books, user_query)
+            logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书。开始并行生成推荐理由...")
+            # 第二步：为匹配到的书籍并行调用LLM生成推荐理由
+            response_data = get_books_with_reasons(matched_books, user_query)
+            logger.info("所有书籍的推荐理由已生成")
             return jsonify(response_data)
         else:
-            logger.info("本地书库未找到匹配，使用备用方案")
-            # 备用方案：调用原有的LLM API或返回模拟数据
-            if API_BACKEND == "spark":
-                llm_response = get_books_with_reasons(user_query)
-                logger.info(f"备用方案 - 星火API返回数据，状态: {llm_response.get('status')}")
-                return jsonify(llm_response)
-            else:
-                logger.warning(f"备用方案 - API后端 {API_BACKEND} 的书籍推荐功能尚未实现，使用模拟数据")
-                llm_response = get_mock_books_with_reasons(user_query)
-                return jsonify(llm_response)
+            logger.info("本地书库未找到匹配，目前此路径无备用方案。")
+            # 在新架构下，如果本地没有匹配，我们选择不调用昂贵的旧版API
+            # 直接返回一个表示"无特定推荐"的空列表
+            return jsonify({
+                "status": "success",
+                "user_query": user_query,
+                "books": []
+            })
         
     except Exception as e:
         logger.error(f"处理书籍推荐请求时发生错误: {str(e)}")
@@ -466,13 +427,17 @@ def inject_monitor_script(driver):
                 `;
             });
 
+            // 修正：使用新的API返回的键名，并正确处理数组
+            const coreConcepts = Array.isArray(book.logical_reason.book_core_concepts) ? book.logical_reason.book_core_concepts.join('、') : book.logical_reason.book_core_concepts;
+            const appFields = Array.isArray(book.logical_reason.application_fields_match) ? book.logical_reason.application_fields_match.join('、') : book.logical_reason.application_fields_match;
+
             return `
                 <div style="display: flex; gap: 15px;">
                     <div style="flex: 1;">
                         <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 逻辑分析</h4>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${book.logical_reason.user_query_recap}</p>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${book.logical_reason.ai_understanding}</p>
-                        <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${book.logical_reason.keyword_match}</p>
+                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${book.logical_reason.user_query_intent}</p>
+                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
+                        <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${appFields}</p>
                     </div>
                     <div style="flex: 1;">
                         <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 社交证据</h4>
