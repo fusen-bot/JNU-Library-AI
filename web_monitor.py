@@ -421,16 +421,13 @@ def inject_monitor_script(driver):
                 <div style="display: flex; gap: 15px;">
                     <div style="flex: 1;">
                         <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 逻辑分析</h4>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>查询理解:</strong> ${book.logical_reason.user_query_recap}</p>
-                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>AI分析:</strong> ${book.logical_reason.ai_understanding}</p>
-                        <p style="margin: 0; font-size: 11px;"><strong>匹配逻辑:</strong> ${book.logical_reason.keyword_match}</p>
+                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${book.logical_reason.user_query_recap}</p>
+                        <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${book.logical_reason.ai_understanding}</p>
+                        <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${book.logical_reason.keyword_match}</p>
                     </div>
                     <div style="flex: 1;">
                         <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 社交证据</h4>
                         ${departmentsHTML}
-                        <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; font-size: 11px;">
-                            <strong>趋势分析:</strong> ${book.social_reason.trend}
-                        </div>
                     </div>
                 </div>
             `;
