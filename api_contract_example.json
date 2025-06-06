@@ -1,0 +1,66 @@
+{
+  "status": "success",
+  "user_query": "计算机编程",
+  "books": [
+    {
+      "title": "深入理解计算机系统",
+      "author": "Randal E. Bryant, David R. O'Hallaron",
+      "isbn": "9787111321312",
+      "cover_url": "https://example.com/cover1.jpg",
+      "logical_reason": {
+        "user_query_recap": "用户搜索：计算机编程",
+        "ai_understanding": "用户希望深入理解计算机底层原理，包括硬件与软件的交互机制、内存管理和性能优化策略。",
+        "keyword_match": "本书通过详细讲解处理器架构、虚拟内存系统和系统级I/O，完美契合了用户对计算机底层机制的探索需求。"
+      },
+      "social_reason": {
+        "departments": [
+          {"name": "计算机科学与工程学院", "rate": 0.85},
+          {"name": "物联网工程学院", "rate": 0.72},
+          {"name": "理学院", "rate": 0.31},
+          {"name": "商学院", "rate": 0.12}
+        ],
+        "trend": "本书为我校工科类核心参考书，常年位居技术类书籍借阅榜首，尤其在考研和保研季借阅量激增，是计算机相关专业学生的必读经典。"
+      }
+    },
+    {
+      "title": "算法导论",
+      "author": "Thomas H. Cormen, Charles E. Leiserson",
+      "isbn": "9787111187776",
+      "cover_url": "https://example.com/cover2.jpg",
+      "logical_reason": {
+        "user_query_recap": "用户搜索：计算机编程",
+        "ai_understanding": "用户需要系统性地学习算法设计与分析方法，提升编程思维和问题解决能力。",
+        "keyword_match": "作为算法领域的权威教材，本书提供了完整的算法理论体系和实践指导，与用户的学习目标高度匹配。"
+      },
+      "social_reason": {
+        "departments": [
+          {"name": "计算机科学与工程学院", "rate": 0.91},
+          {"name": "数字媒体学院", "rate": 0.68},
+          {"name": "理学院", "rate": 0.45},
+          {"name": "物联网工程学院", "rate": 0.76}
+        ],
+        "trend": "该书是算法竞赛和技术面试的热门参考书，借阅量在每年春招和秋招季节达到峰值，深受编程爱好者和求职学生青睐。"
+      }
+    },
+    {
+      "title": "Java核心技术",
+      "author": "Cay S. Horstmann",
+      "isbn": "9787111213826",
+      "cover_url": "https://example.com/cover3.jpg",
+      "logical_reason": {
+        "user_query_recap": "用户搜索：计算机编程",
+        "ai_understanding": "用户想要掌握Java编程语言的核心概念和企业级开发技能，为就业或项目开发做准备。",
+        "keyword_match": "本书涵盖了Java语言的完整特性和最佳实践，为用户提供了从基础到高级的系统性学习路径。"
+      },
+      "social_reason": {
+        "departments": [
+          {"name": "计算机科学与工程学院", "rate": 0.83},
+          {"name": "商学院", "rate": 0.34},
+          {"name": "设计学院", "rate": 0.28},
+          {"name": "物联网工程学院", "rate": 0.67}
+        ],
+        "trend": "Java作为企业级开发的主流语言，这本书在实习季和毕业设计期间借阅火爆，是学生踏入软件开发行业的重要参考。"
+      }
+    }
+  ]
+} 

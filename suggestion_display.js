@@ -317,31 +317,52 @@ document.addEventListener('DOMContentLoaded', function() {
                     debounceTimer = setTimeout(() => {
                         const value = e.target.value;
                         if (value.length > 3) {
-                            // 请求建议
-                            fetch('http://localhost:5001/input', {
+                            // 请求新的书籍推荐API
+                            fetch('http://localhost:5001/api/books_with_reasons', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    element: e.target.tagName,
-                                    id: e.target.id,
-                                    value: value,
-                                    timestamp: new Date().getTime()
+                                    query: value
                                 })
                             })
                             .then(response => response.json())
                             .then(data => {
-                                console.log("API返回数据:", data); // 添加日志
-                                // 检查所有可能的响应字段
-                                const suggestion = data.suggestion || data.suggestions || (data.content ? data.content : null);
-                                if (suggestion) {
-                                    showSuggestion(suggestion);
-                                } else {
-                                    console.warn("API返回数据没有包含建议内容:", data);
-                                }
+                                console.log("🔍 新API返回的完整数据:", data); // 改进日志
+                                console.log("📋 数据契约验证:");
+                                console.log("  - status:", data.status);
+                                console.log("  - user_query:", data.user_query);
+                                console.log("  - books数量:", data.books ? data.books.length : 0);
+                                
+                                                                 if (data.status === 'success' && data.books && data.books.length > 0) {
+                                     // ✨ 使用新版推荐理由UI组件
+                                     if (typeof showBooksWithReasons === 'function') {
+                                         showBooksWithReasons(data);
+                                     } else {
+                                         // 备用：旧版显示方式
+                                         let displayText = "书籍：";
+                                         data.books.forEach((book, index) => {
+                                             displayText += `《${book.title}》`;
+                                             if (index < data.books.length - 1) displayText += "，";
+                                         });
+                                         displayText += "\n问题：相关推荐理由展示？学术影响力如何？";
+                                         showSuggestion(displayText);
+                                     }
+                                     
+                                     // 详细打印每本书的推荐理由
+                                     data.books.forEach((book, index) => {
+                                         console.log(`📚 书籍${index + 1}: ${book.title}`);
+                                         console.log("  📖 作者:", book.author);
+                                         console.log("  🧠 逻辑分析:", book.logical_reason);
+                                         console.log("  👥 社交证据:", book.social_reason);
+                                         console.log("  ---");
+                                     });
+                                 } else {
+                                     console.warn("⚠️ API返回数据格式异常:", data);
+                                 }
                             })
-                            .catch(err => console.error('获取建议失败:', err));
+                            .catch(err => console.error('❌ 获取书籍推荐失败:', err));
                         }
                     }, 500); // 500ms的防抖延迟
                 });
