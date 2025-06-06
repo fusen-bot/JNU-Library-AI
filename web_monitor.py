@@ -119,6 +119,11 @@ def inject_monitor_script(driver):
         if (window.__inputMonitorInitialized) return;
         window.__inputMonitorInitialized = true;
         
+        // 添加请求状态追踪变量及加载定时器句柄
+        window.__suggestionsInFlight = false;
+        window.__lastSuggestionsContent = '';
+        window.__loadingTimer = null;
+        
         console.log('初始化输入监控系统');
         
         const targetSelector = '.ant-select-search__field';
@@ -188,6 +193,10 @@ def inject_monitor_script(driver):
         }
         
         function updateDisplay(text, isInput = true, isError = false) {
+            // 在请求中且已有旧建议且等待时间小于阈值，则保留旧建议
+            if (!text && window.__suggestionsInFlight && window.__lastSuggestionsContent && (Date.now() - lastRequestTime < REQUEST_DELAY)) {
+                return;
+            }
             const displayArea = document.getElementById('suggestion-display');
             if (!displayArea) return;
             
@@ -201,7 +210,7 @@ def inject_monitor_script(driver):
                 defaultText.style.borderRadius = '4px';
                 defaultText.style.cursor = 'text';
                 defaultText.style.color = '#666';
-                defaultText.textContent = '正在为你查找相应推荐书籍和热门问题';
+                defaultText.textContent = '正在为你查找相应推荐书籍和热门话题';
                 defaultText.style.textAlign = 'center';
                 displayArea.innerHTML = '';
                 displayArea.appendChild(defaultText);
@@ -353,7 +362,7 @@ def inject_monitor_script(driver):
                     questionsTitle.style.marginBottom = '6px';
                     questionsTitle.style.fontSize = '13px';
                     questionsTitle.style.color = '#333';
-                    questionsTitle.textContent = '热门问题';
+                    questionsTitle.textContent = '热门话题';
                     displayArea.appendChild(questionsTitle);
                     
                     // 创建问题内容容器
@@ -448,6 +457,16 @@ def inject_monitor_script(driver):
         }
         
         async function sendToServer(inputValue, retryCount = 0) {
+            // 标记请求开始，并设置加载延迟定时器
+            window.__suggestionsInFlight = true;
+            // 清除上一轮加载定时器
+            if (window.__loadingTimer) clearTimeout(window.__loadingTimer);
+            // 等待超时后显示默认提示
+            window.__loadingTimer = setTimeout(() => {
+                if (window.__suggestionsInFlight) {
+                    updateDisplay('', false);
+                }
+            }, REQUEST_DELAY);
             const now = Date.now();
             if (now - lastRequestTime < REQUEST_DELAY) {
                 console.log('请求过于频繁，等待中...');
@@ -474,10 +493,17 @@ def inject_monitor_script(driver):
                 // 兼容后端返回的 suggestions 或 content 字段
                 const suggestion = data.suggestions || data.content;
                 if (suggestion) {
+                    // 保存并显示新建议，清除加载定时器并重置请求状态
+                    window.__lastSuggestionsContent = suggestion;
                     updateDisplay(suggestion, false);
+                    clearTimeout(window.__loadingTimer);
+                    window.__suggestionsInFlight = false;
                 } else {
                     const displayArea = document.getElementById('suggestion-display');
                     if (displayArea) hideDisplayArea(displayArea);
+                    // 请求失败或无建议，清除加载定时器并重置请求状态
+                    clearTimeout(window.__loadingTimer);
+                    window.__suggestionsInFlight = false;
                 }
             } catch (error) {
                 console.error('请求失败:', error);

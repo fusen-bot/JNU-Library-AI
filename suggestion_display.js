@@ -206,7 +206,7 @@ function showSuggestion(suggestion) {
         questionsTitle.style.marginBottom = '6px';
         questionsTitle.style.fontSize = '13px';
         questionsTitle.style.color = '#333';
-        questionsTitle.textContent = '热门问题';
+        questionsTitle.textContent = '热门话题';
         contentElement.appendChild(questionsTitle);
         
         // 创建问题内容容器
