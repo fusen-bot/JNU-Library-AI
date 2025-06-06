@@ -46,6 +46,7 @@ function createBooksReasonContainer(container, books) {
         const book = books[i];
         const bookItem = document.createElement('div');
         bookItem.className = 'book-item';
+        bookItem.dataset.bookIndex = i; // 存储书籍索引，用于后续查找
         bookItem.style.cssText = `
             flex: 1;
             min-width: 0;
@@ -113,40 +114,34 @@ function createBooksReasonContainer(container, books) {
         bookItem.appendChild(bookHeader);
         bookItem.appendChild(bookAuthor);
 
-        // 2b. 创建默认隐藏的详情浮层
-        const detailPanel = document.createElement('div');
-        detailPanel.className = 'detail-panel';
-        detailPanel.style.cssText = `
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            margin-top: 5px;
-            background: white;
-            border: 1px solid #05a081;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            padding: 15px;
-            z-index: 10;
-            border-radius: 8px;
-            opacity: 0;
-            transform: translateY(-10px) scaleY(0.95);
-            transform-origin: top center;
-            pointer-events: none;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        `;
-        
-        // 将逻辑分析和社交证据的HTML内容填充到这里
-        detailPanel.innerHTML = createDetailContentHTML(book);
-        
-        bookItem.appendChild(detailPanel);
+        // 2b. 不再为每本书创建独立的浮层，只添加到书籍列表中
         booksList.appendChild(bookItem);
     }
     
     container.appendChild(booksList);
 
-    // 3. 在这里统一添加事件监听器
-    addInteractionHandlers(booksList);
+    // 2c. 在书籍列表后创建一个共享的、全宽度的详情浮层
+    const sharedDetailPanel = document.createElement('div');
+    sharedDetailPanel.className = 'shared-detail-panel';
+    sharedDetailPanel.style.cssText = `
+        display: none;
+        width: 100%;
+        background: white;
+        border: 1px solid #05a081;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-top: 10px;
+        border-radius: 8px;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        box-sizing: border-box;
+        z-index: 10;
+    `;
+    container.appendChild(sharedDetailPanel);
+
+    // 3. 在这里统一添加事件监听器，并传入书籍数据
+    addInteractionHandlers(container, books);
 }
 
 // 辅助函数: 创建浮层的详细内容
@@ -188,71 +183,83 @@ function createDetailContentHTML(book) {
     `;
 }
 
-// 交互处理函数
-function addInteractionHandlers(booksListContainer) {
+// 交互处理函数 - 重构为共享浮层模式
+function addInteractionHandlers(container, books) {
+    const booksListContainer = container.querySelector('.books-container');
     const allBookItems = booksListContainer.querySelectorAll('.book-item');
+    const sharedDetailPanel = container.querySelector('.shared-detail-panel');
+    let hidePanelTimeout; // 用于延迟隐藏浮层
     
     allBookItems.forEach(item => {
         item.addEventListener('mouseenter', function() {
-            // 1. 先隐藏所有其他的浮层
-            const allDetailPanels = booksListContainer.querySelectorAll('.detail-panel');
-            allDetailPanels.forEach(panel => {
-                panel.classList.remove('visible');
-                panel.style.opacity = '0';
-                panel.style.transform = 'translateY(-10px) scaleY(0.95)';
-                panel.style.pointerEvents = 'none';
-                setTimeout(() => {
-                    if (!panel.classList.contains('visible')) {
-                        panel.style.display = 'none';
-                    }
-                }, 300);
-            });
+            // 清除可能存在的隐藏定时器
+            clearTimeout(hidePanelTimeout);
 
-            // 2. 找到当前这本书对应的浮层并显示它
-            const currentPanel = this.querySelector('.detail-panel');
-            if (currentPanel) {
-                currentPanel.style.display = 'block';
-                // 延迟一帧应用class，确保CSS transition生效
+            // 1. 获取书籍数据并更新共享浮层内容
+            const bookIndex = parseInt(this.dataset.bookIndex, 10);
+            const book = books[bookIndex];
+
+            if (book && sharedDetailPanel) {
+                // 2. 更新浮层内容
+                sharedDetailPanel.innerHTML = createDetailContentHTML(book);
+                
+                // 3. 显示共享浮层
+                sharedDetailPanel.style.display = 'block';
                 setTimeout(() => {
-                    currentPanel.classList.add('visible');
-                    currentPanel.style.opacity = '1';
-                    currentPanel.style.transform = 'translateY(0) scaleY(1)';
-                    currentPanel.style.pointerEvents = 'auto';
-                }, 10);
+                    sharedDetailPanel.style.opacity = '1';
+                    sharedDetailPanel.style.transform = 'translateY(0)';
+                }, 10); // 延迟以触发CSS transition
             }
 
-            // 书籍项的悬停效果
+            // 4. 高亮当前悬停的书籍项，重置其他项
+            allBookItems.forEach(i => {
+                if (i !== this) {
+                    i.style.borderColor = '#ddd';
+                    i.style.transform = 'translateY(0)';
+                    i.style.boxShadow = 'none';
+                }
+            });
             this.style.borderColor = '#05a081';
             this.style.transform = 'translateY(-2px)';
             this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
         });
     });
 
-    // 3. 在整个推荐组件的大容器上监听 mouseleave
-    booksListContainer.addEventListener('mouseleave', function() {
-        // 隐藏所有浮层
-        const allDetailPanels = booksListContainer.querySelectorAll('.detail-panel');
-        allDetailPanels.forEach(panel => {
-            panel.classList.remove('visible');
-            panel.style.opacity = '0';
-            panel.style.transform = 'translateY(-10px) scaleY(0.95)';
-            panel.style.pointerEvents = 'none';
-            // 等动画结束后再彻底隐藏，防止动画闪烁
+    // 隐藏浮层的函数
+    const hidePanel = () => {
+        if (sharedDetailPanel) {
+            sharedDetailPanel.style.opacity = '0';
+            sharedDetailPanel.style.transform = 'translateY(-10px)';
             setTimeout(() => {
-                if (!panel.classList.contains('visible')) {
-                    panel.style.display = 'none';
-                }
-            }, 300); // 300ms 对应CSS动画时长
-        });
+                sharedDetailPanel.style.display = 'none';
+            }, 300);
+        }
 
         // 重置所有书籍项的样式
-        const allBookItems = booksListContainer.querySelectorAll('.book-item');
         allBookItems.forEach(item => {
             item.style.borderColor = '#ddd';
             item.style.transform = 'translateY(0)';
             item.style.boxShadow = 'none';
         });
+    };
+
+    // 鼠标离开整个容器时，延迟隐藏浮层
+    container.addEventListener('mouseleave', () => {
+        // 使用setTimeout给予用户将鼠标从书籍移动到浮层上的时间
+        hidePanelTimeout = setTimeout(hidePanel, 100);
     });
+
+    // 当鼠标进入共享浮层时，取消隐藏操作
+    if (sharedDetailPanel) {
+        sharedDetailPanel.addEventListener('mouseenter', () => {
+            clearTimeout(hidePanelTimeout);
+        });
+        
+        // 当鼠标离开共享浮层时，立即隐藏
+        sharedDetailPanel.addEventListener('mouseleave', () => {
+            hidePanel();
+        });
+    }
 }
 
 
