@@ -396,6 +396,10 @@ document.addEventListener('DOMContentLoaded', function() {
     window.__lastSuggestionsContent = '';
     window.__loadingTimer = null;
     
+    // 🔧 添加书籍点击状态追踪，防止循环触发
+    window.__isBookClickTriggered = false;
+    window.__bookClickTimeout = null;
+    
     console.log('🚀 初始化输入监控系统 - 集成新版推荐理由UI');
     
     // ================================
@@ -666,6 +670,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (displayArea) hideDisplayArea(displayArea);
             stopTaskPolling();
             return;
+        }
+        
+        // 🔧 检查是否是书籍点击触发的输入变化
+        if (window.__isBookClickTriggered) {
+            console.log('⚠️ 忽略书籍点击触发的输入变化:', inputValue);
+            return; // 忽略这次输入，避免循环触发
         }
         
         console.log('捕获到输入:', inputValue);

@@ -158,6 +158,10 @@ function createBooksReasonContainer(container, books) {
 
         // 添加 bookIndex 数据属性用于后续查找
         bookItem.dataset.bookIndex = i;
+        // 📖【修复】添加唯一的ISBN作为数据属性，确保数据和视图的稳定链接
+        if (book.isbn) {
+            bookItem.dataset.bookIsbn = book.isbn;
+        }
         booksList.appendChild(bookItem);
     }
     
@@ -244,9 +248,15 @@ function addInteractionHandlers(container, books) {
     let hidePanelTimeout; // 用于延迟隐藏浮层
     
     allBookItems.forEach(item => {
+        // 📖【修复】使用ISBN从数据中查找对应的书籍，不再依赖数组顺序
+        const itemIsbn = item.dataset.bookIsbn;
+        if (!itemIsbn) {
+            console.warn('⚠️ 书籍项缺少ISBN标识，无法附加精确的点击事件。');
+            return;
+        }
+        const book = books.find(b => b.isbn === itemIsbn);
+
         // 只为有完整推荐理由的书籍项添加交互
-        const bookIndex = parseInt(item.dataset.bookIndex, 10);
-        const book = books[bookIndex];
         if (!book || !book.logical_reason || !book.social_reason) {
             return;
         }
@@ -566,12 +576,26 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         const searchQuery = bookTitle.replace(/《|》/g, '').trim();
         console.log(`📝 构造搜索关键词: "${searchQuery}"`);
         
-        // 3. 使用React兼容的方式来更新输入框的值
+        // 3. 🔧 设置书籍点击标志，防止输入监听器循环触发
+        if (window.__isBookClickTriggered !== undefined) {
+            window.__isBookClickTriggered = true;
+            // 清除之前的超时
+            if (window.__bookClickTimeout) {
+                clearTimeout(window.__bookClickTimeout);
+            }
+            // 2秒后自动重置标志
+            window.__bookClickTimeout = setTimeout(() => {
+                window.__isBookClickTriggered = false;
+                console.log('✅ 书籍点击标志已重置');
+            }, 2000);
+        }
+        
+        // 4. 使用React兼容的方式来更新输入框的值
         // 这是关键修复：直接设置 .value 属性可能不会被React的状态管理系统捕获
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
         nativeInputValueSetter.call(searchInput, searchQuery);
 
-        // 4. 触发React能够识别的`input`事件，以确保状态更新
+        // 5. 触发React能够识别的`input`事件，以确保状态更新
         const inputEvent = new Event('input', { bubbles: true });
         searchInput.dispatchEvent(inputEvent);
         
@@ -581,6 +605,7 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
                 timestamp: new Date().toISOString(),
                 action: 'input_value_set',
                 searchQuery: searchQuery,
+                isBookClickTriggered: window.__isBookClickTriggered,
                 inputElement: {
                     className: searchInput.className,
                     placeholder: searchInput.placeholder
@@ -590,7 +615,7 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         
         console.log('📤 已触发React兼容的输入事件');
         
-        // 5. 延迟点击搜索按钮以等待页面响应
+        // 6. 延迟点击搜索按钮以等待页面响应
         setTimeout(() => {
             const searchButtonSelectors = [
                 'button.ant-btn.searchBtn___eV8Vn',
