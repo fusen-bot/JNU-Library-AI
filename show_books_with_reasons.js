@@ -620,6 +620,7 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
             const searchButtonSelectors = [
                 'button.ant-btn.searchBtn___eV8Vn',
                 'button.searchBtn___eV8Vn',
+                'button.ant-btn.newSearchBtn___3p7dd',
                 'button[type="button"]:has(.anticon-search)',
                 'button:contains("检索")',
                 '.ant-btn-primary:has(.anticon-search)'
