@@ -566,9 +566,14 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         const searchQuery = bookTitle.replace(/《|》/g, '').trim();
         console.log(`📝 构造搜索关键词: "${searchQuery}"`);
         
-        // 3. 清空现有内容并设置新值
-        searchInput.value = '';
-        searchInput.focus();
+        // 3. 使用React兼容的方式来更新输入框的值
+        // 这是关键修复：直接设置 .value 属性可能不会被React的状态管理系统捕获
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(searchInput, searchQuery);
+
+        // 4. 触发React能够识别的`input`事件，以确保状态更新
+        const inputEvent = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(inputEvent);
         
         // 记录输入设置
         if (window.__testSearchEvents) {
@@ -583,78 +588,59 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
             });
         }
         
-        // 4. 模拟用户输入
+        console.log('📤 已触发React兼容的输入事件');
+        
+        // 5. 延迟点击搜索按钮以等待页面响应
         setTimeout(() => {
-            searchInput.value = searchQuery;
+            const searchButtonSelectors = [
+                'button.ant-btn.searchBtn___eV8Vn',
+                'button.searchBtn___eV8Vn',
+                'button[type="button"]:has(.anticon-search)',
+                'button:contains("检索")',
+                '.ant-btn-primary:has(.anticon-search)'
+            ];
             
-            // 触发输入事件
-            const inputEvent = new Event('input', { 
-                bubbles: true, 
-                cancelable: true 
-            });
-            searchInput.dispatchEvent(inputEvent);
-            
-            const changeEvent = new Event('change', { 
-                bubbles: true, 
-                cancelable: true 
-            });
-            searchInput.dispatchEvent(changeEvent);
-            
-            console.log('📤 已触发输入事件');
-            
-            // 5. 延迟点击搜索按钮
-            setTimeout(() => {
-                const searchButtonSelectors = [
-                    'button.ant-btn.searchBtn___eV8Vn',
-                    'button.searchBtn___eV8Vn',
-                    'button[type="button"]:has(.anticon-search)',
-                    'button:contains("检索")',
-                    '.ant-btn-primary:has(.anticon-search)'
-                ];
-                
-                let searchBtn = null;
-                for (const selector of searchButtonSelectors) {
-                    try {
-                        searchBtn = document.querySelector(selector);
-                        if (searchBtn) {
-                            console.log(`✅ 找到搜索按钮，使用选择器: ${selector}`);
-                            break;
-                        }
-                    } catch (e) {
-                        // 某些选择器可能不支持，继续尝试下一个
-                        continue;
+            let searchBtn = null;
+            for (const selector of searchButtonSelectors) {
+                try {
+                    searchBtn = document.querySelector(selector);
+                    if (searchBtn) {
+                        console.log(`✅ 找到搜索按钮，使用选择器: ${selector}`);
+                        break;
                     }
+                } catch (e) {
+                    // 某些选择器可能不支持，继续尝试下一个
+                    continue;
                 }
-                
-                if (searchBtn) {
-                    console.log('🔍 模拟点击搜索按钮');
-                    searchBtn.click();
-                    
-                    // 记录搜索按钮点击
-                    if (window.__testSearchEvents) {
-                        window.__testSearchEvents.push({
-                            timestamp: new Date().toISOString(),
-                            action: 'search_button_clicked',
-                            success: true
-                        });
-                    }
-                } else {
-                    console.warn('❌ 未找到搜索按钮');
-                    if (window.__testSearchEvents) {
-                        window.__testSearchEvents.push({
-                            timestamp: new Date().toISOString(),
-                            action: 'search_button_not_found',
-                            availableButtons: Array.from(document.querySelectorAll('button')).map(btn => ({
-                                className: btn.className,
-                                textContent: btn.textContent.trim(),
-                                type: btn.type
-                            }))
-                        });
-                    }
-                }
-            }, 500);
+            }
             
-        }, 100);
+            if (searchBtn) {
+                console.log('🔍 模拟点击搜索按钮');
+                searchBtn.click();
+                
+                // 记录搜索按钮点击
+                if (window.__testSearchEvents) {
+                    window.__testSearchEvents.push({
+                        timestamp: new Date().toISOString(),
+                        action: 'search_button_clicked',
+                        success: true
+                    });
+                }
+            } else {
+                console.warn('❌ 未找到搜索按钮');
+                if (window.__testSearchEvents) {
+                    window.__testSearchEvents.push({
+                        timestamp: new Date().toISOString(),
+                        action: 'search_button_not_found',
+                        availableButtons: Array.from(document.querySelectorAll('button')).map(btn => ({
+                            className: btn.className,
+                            textContent: btn.textContent.trim(),
+                            type: btn.type
+                        }))
+                    });
+                }
+            }
+        }, 500);
         
         return true;
         
