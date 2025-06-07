@@ -5,6 +5,11 @@
  */
 
 function showBooksWithReasons(apiData) {
+    // 注入增强样式
+    injectEnhancedStyles();
+    // 初始化测试事件收集器
+    initializeTestEventCollector();
+    
     console.log("🎨 使用真实环境新版推荐理由UI组件");
     console.log("📊 API数据:", apiData);
     
@@ -231,7 +236,7 @@ function createDetailContentHTML(book) {
     `;
 }
 
-// 交互处理函数 - 重构为共享浮层模式
+// 交互处理函数 - 增强版：支持悬停显示详情和点击跳转搜索
 function addInteractionHandlers(container, books) {
     const booksListContainer = container.querySelector('.books-container');
     const allBookItems = booksListContainer.querySelectorAll('.book-item');
@@ -246,6 +251,60 @@ function addInteractionHandlers(container, books) {
             return;
         }
 
+        // 🆕 添加点击事件处理
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`📚 用户点击了书籍: ${book.title}`);
+            
+            // 记录点击事件
+            if (window.__testSearchEvents) {
+                window.__testSearchEvents.push({
+                    timestamp: new Date().toISOString(),
+                    action: 'book_item_clicked',
+                    bookTitle: book.title,
+                    bookAuthor: book.author,
+                    bookISBN: book.isbn
+                });
+            }
+            
+            // 添加点击反馈效果
+            this.style.transform = 'scale(0.98)';
+            this.classList.add('search-success-flash');
+            
+            setTimeout(() => {
+                this.style.transform = 'translateY(-2px)';
+                this.classList.remove('search-success-flash');
+            }, 300);
+            
+            // 执行搜索跳转
+            try {
+                searchBookInLibrary(book.title, book.author, book.isbn);
+                
+                // 隐藏推荐面板
+                setTimeout(() => {
+                    const displayArea = document.getElementById('suggestion-display');
+                    if (displayArea) {
+                        console.log('🚪 隐藏推荐面板');
+                        hideDisplayArea(displayArea);
+                    }
+                }, 1500);
+                
+            } catch (error) {
+                console.error('❌ 执行搜索跳转时发生错误:', error);
+                if (window.__testSearchEvents) {
+                    window.__testSearchEvents.push({
+                        timestamp: new Date().toISOString(),
+                        action: 'search_execution_error',
+                        error: error.message,
+                        bookTitle: book.title
+                    });
+                }
+            }
+        });
+
+        // 增强鼠标进入事件
         item.addEventListener('mouseenter', function() {
             // 清除可能存在的隐藏定时器
             clearTimeout(hidePanelTimeout);
@@ -364,6 +423,385 @@ function hideDisplayArea(displayArea) {
         displayArea.style.display = 'none';
     }, 300);
 }
+
+/**
+ * ===========================================
+ * 书籍搜索跳转功能模块
+ * ===========================================
+ */
+
+// 注入增强样式
+function injectEnhancedStyles() {
+    if (document.getElementById('book-interaction-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'book-interaction-styles';
+    style.textContent = `
+        .book-item {
+            cursor: pointer !important;
+            user-select: none;
+        }
+        
+        .book-item:hover {
+            cursor: pointer !important;
+        }
+        
+        .book-item:active {
+            transform: scale(0.98) !important;
+        }
+        
+        .book-item::after {
+            content: "🔍";
+            position: absolute;
+            top: 40px;
+            right: 1px;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+            background: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(132, 223, 233, 0.17);
+        }
+        
+        .book-item:hover::after {
+            opacity: 0.9;
+        }
+        
+        .search-success-flash {
+            animation: searchFlash 0.6s ease-out;
+        }
+        
+        @keyframes searchFlash {
+            0% { background-color: #d4edda; transform: scale(1); }
+            50% { background-color: #a7d4aa; transform: scale(1.02); }
+            100% { background-color: transparent; transform: scale(1); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// 在图书馆系统中搜索指定书籍
+function searchBookInLibrary(bookTitle, bookAuthor, bookISBN) {
+    console.log(`🔍 开始在图书馆系统中搜索: ${bookTitle}`);
+    
+    // 记录搜索事件用于测试
+    if (window.__testSearchEvents) {
+        window.__testSearchEvents.push({
+            timestamp: new Date().toISOString(),
+            bookTitle: bookTitle,
+            bookAuthor: bookAuthor,
+            bookISBN: bookISBN,
+            method: 'searchBookInLibrary'
+        });
+    }
+    
+    // 方案1: 模拟在当前页面搜索
+    const searchSuccess = simulateLibrarySearch(bookTitle, bookAuthor);
+    
+    if (!searchSuccess) {
+        console.log('模拟搜索失败，尝试备用方案');
+        // 方案2: 备用 - 构造URL跳转
+        jumpToBookSearch(bookTitle, bookISBN);
+    }
+    
+    return true;
+}
+
+// 模拟图书馆搜索操作
+function simulateLibrarySearch(bookTitle, bookAuthor) {
+    try {
+        console.log('🎯 尝试模拟图书馆搜索操作');
+        
+        // 记录模拟搜索尝试
+        if (window.__testSearchEvents) {
+            window.__testSearchEvents.push({
+                timestamp: new Date().toISOString(),
+                action: 'simulateLibrarySearch_attempt',
+                bookTitle: bookTitle
+            });
+        }
+        
+        // 1. 找到搜索输入框 - 使用多种选择器尝试
+        const inputSelectors = [
+            '.ant-input.ant-select-search__field[data-monitored="true"]',
+            '.ant-select-search__field',
+            'input.ant-input',
+            'input[placeholder*="搜索"]',
+            'input[placeholder*="检索"]'
+        ];
+        
+        let searchInput = null;
+        for (const selector of inputSelectors) {
+            searchInput = document.querySelector(selector);
+            if (searchInput) {
+                console.log(`✅ 找到搜索输入框，使用选择器: ${selector}`);
+                break;
+            }
+        }
+        
+        if (!searchInput) {
+            console.warn('❌ 未找到搜索输入框，记录页面状态');
+            if (window.__testSearchEvents) {
+                window.__testSearchEvents.push({
+                    timestamp: new Date().toISOString(),
+                    action: 'simulateLibrarySearch_failed',
+                    reason: 'input_not_found',
+                    availableInputs: Array.from(document.querySelectorAll('input')).map(input => ({
+                        className: input.className,
+                        placeholder: input.placeholder,
+                        type: input.type
+                    }))
+                });
+            }
+            return false;
+        }
+        
+        // 2. 构造搜索关键词 - 优先使用书名
+        const searchQuery = bookTitle.replace(/《|》/g, '').trim();
+        console.log(`📝 构造搜索关键词: "${searchQuery}"`);
+        
+        // 3. 清空现有内容并设置新值
+        searchInput.value = '';
+        searchInput.focus();
+        
+        // 记录输入设置
+        if (window.__testSearchEvents) {
+            window.__testSearchEvents.push({
+                timestamp: new Date().toISOString(),
+                action: 'input_value_set',
+                searchQuery: searchQuery,
+                inputElement: {
+                    className: searchInput.className,
+                    placeholder: searchInput.placeholder
+                }
+            });
+        }
+        
+        // 4. 模拟用户输入
+        setTimeout(() => {
+            searchInput.value = searchQuery;
+            
+            // 触发输入事件
+            const inputEvent = new Event('input', { 
+                bubbles: true, 
+                cancelable: true 
+            });
+            searchInput.dispatchEvent(inputEvent);
+            
+            const changeEvent = new Event('change', { 
+                bubbles: true, 
+                cancelable: true 
+            });
+            searchInput.dispatchEvent(changeEvent);
+            
+            console.log('📤 已触发输入事件');
+            
+            // 5. 延迟点击搜索按钮
+            setTimeout(() => {
+                const searchButtonSelectors = [
+                    'button.ant-btn.searchBtn___eV8Vn',
+                    'button.searchBtn___eV8Vn',
+                    'button[type="button"]:has(.anticon-search)',
+                    'button:contains("检索")',
+                    '.ant-btn-primary:has(.anticon-search)'
+                ];
+                
+                let searchBtn = null;
+                for (const selector of searchButtonSelectors) {
+                    try {
+                        searchBtn = document.querySelector(selector);
+                        if (searchBtn) {
+                            console.log(`✅ 找到搜索按钮，使用选择器: ${selector}`);
+                            break;
+                        }
+                    } catch (e) {
+                        // 某些选择器可能不支持，继续尝试下一个
+                        continue;
+                    }
+                }
+                
+                if (searchBtn) {
+                    console.log('🔍 模拟点击搜索按钮');
+                    searchBtn.click();
+                    
+                    // 记录搜索按钮点击
+                    if (window.__testSearchEvents) {
+                        window.__testSearchEvents.push({
+                            timestamp: new Date().toISOString(),
+                            action: 'search_button_clicked',
+                            success: true
+                        });
+                    }
+                } else {
+                    console.warn('❌ 未找到搜索按钮');
+                    if (window.__testSearchEvents) {
+                        window.__testSearchEvents.push({
+                            timestamp: new Date().toISOString(),
+                            action: 'search_button_not_found',
+                            availableButtons: Array.from(document.querySelectorAll('button')).map(btn => ({
+                                className: btn.className,
+                                textContent: btn.textContent.trim(),
+                                type: btn.type
+                            }))
+                        });
+                    }
+                }
+            }, 500);
+            
+        }, 100);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ 模拟搜索过程中发生错误:', error);
+        if (window.__testSearchEvents) {
+            window.__testSearchEvents.push({
+                timestamp: new Date().toISOString(),
+                action: 'simulateLibrarySearch_error',
+                error: error.message,
+                stack: error.stack
+            });
+        }
+        return false;
+    }
+}
+
+// 备用方案：直接URL跳转
+function jumpToBookSearch(bookTitle, bookISBN) {
+    try {
+        const cleanTitle = bookTitle.replace(/《|》/g, '').trim();
+        const baseUrl = 'https://opac.jiangnan.edu.cn';
+        
+        // 构造搜索URL（根据实际的URL格式调整）
+        let searchUrl = `${baseUrl}/#/search?query=${encodeURIComponent(cleanTitle)}`;
+        
+        if (bookISBN && bookISBN !== 'N/A') {
+            searchUrl += `&isbn=${encodeURIComponent(bookISBN)}`;
+        }
+        
+        console.log(`🌐 跳转到搜索页面: ${searchUrl}`);
+        
+        // 记录URL跳转
+        if (window.__testSearchEvents) {
+            window.__testSearchEvents.push({
+                timestamp: new Date().toISOString(),
+                action: 'url_jump',
+                searchUrl: searchUrl,
+                bookTitle: cleanTitle,
+                bookISBN: bookISBN
+            });
+        }
+        
+        window.open(searchUrl, '_blank');
+        
+    } catch (error) {
+        console.error('❌ URL跳转失败:', error);
+        if (window.__testSearchEvents) {
+            window.__testSearchEvents.push({
+                timestamp: new Date().toISOString(),
+                action: 'url_jump_error',
+                error: error.message
+            });
+        }
+        // 最后的备用方案：直接跳转到首页
+        window.open('https://opac.jiangnan.edu.cn/#/Home', '_blank');
+    }
+}
+
+/**
+ * ===========================================
+ * 测试和调试工具
+ * ===========================================
+ */
+
+// 初始化测试事件收集器
+function initializeTestEventCollector() {
+    if (!window.__testSearchEvents) {
+        window.__testSearchEvents = [];
+        console.log('📊 测试事件收集器已初始化');
+    }
+}
+
+// 调试图书馆页面元素
+function debugLibraryElements() {
+    console.log('🔍 调试图书馆页面元素:');
+    
+    const searchInput = document.querySelector('.ant-input.ant-select-search__field[data-monitored="true"]');
+    console.log('主搜索输入框:', searchInput);
+    
+    const searchBtn = document.querySelector('button.ant-btn.searchBtn___eV8Vn');
+    console.log('主搜索按钮:', searchBtn);
+    
+    const allInputs = document.querySelectorAll('input');
+    console.log('页面所有输入框数量:', allInputs.length);
+    allInputs.forEach((input, index) => {
+        console.log(`输入框 ${index + 1}:`, {
+            className: input.className,
+            placeholder: input.placeholder,
+            type: input.type,
+            visible: input.offsetParent !== null
+        });
+    });
+    
+    const allButtons = document.querySelectorAll('button');
+    console.log('页面所有按钮数量:', allButtons.length);
+    allButtons.forEach((button, index) => {
+        console.log(`按钮 ${index + 1}:`, {
+            className: button.className,
+            textContent: button.textContent.trim(),
+            type: button.type,
+            visible: button.offsetParent !== null
+        });
+    });
+    
+    // 检查是否有搜索相关的图标
+    const searchIcons = document.querySelectorAll('.anticon-search');
+    console.log('搜索图标数量:', searchIcons.length);
+}
+
+// 获取测试报告
+function getTestReport() {
+    if (!window.__testSearchEvents || window.__testSearchEvents.length === 0) {
+        console.log('📋 暂无测试事件记录');
+        return null;
+    }
+    
+    const report = {
+        totalEvents: window.__testSearchEvents.length,
+        events: window.__testSearchEvents,
+        summary: {
+            searchAttempts: window.__testSearchEvents.filter(e => e.method === 'searchBookInLibrary').length,
+            simulationAttempts: window.__testSearchEvents.filter(e => e.action === 'simulateLibrarySearch_attempt').length,
+            simulationSuccesses: window.__testSearchEvents.filter(e => e.action === 'search_button_clicked').length,
+            urlJumps: window.__testSearchEvents.filter(e => e.action === 'url_jump').length,
+            errors: window.__testSearchEvents.filter(e => e.action && e.action.includes('error')).length
+        },
+        generatedAt: new Date().toISOString()
+    };
+    
+    console.log('📊 测试报告:', report);
+    return report;
+}
+
+// 清除测试事件
+function clearTestEvents() {
+    if (window.__testSearchEvents) {
+        window.__testSearchEvents = [];
+        console.log('🧹 测试事件已清除');
+    }
+}
+
+// 全局暴露测试工具
+window.debugLibraryElements = debugLibraryElements;
+window.getTestReport = getTestReport;
+window.clearTestEvents = clearTestEvents;
+window.searchBookInLibrary = searchBookInLibrary;
 
 // 导出函数以便在其他文件中使用
 if (typeof module !== 'undefined' && module.exports) {

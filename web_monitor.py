@@ -394,18 +394,21 @@ def handle_input():
 def inject_monitor_script(driver):
     monitor_script = ""
     try:
-        # 读取两个核心JS文件的内容
+        # 读取三个核心JS文件的内容
         with open('show_books_with_reasons.js', 'r', encoding='utf-8') as f:
             monitor_script += f.read()
         
         with open('suggestion_display.js', 'r', encoding='utf-8') as f:
             monitor_script += f.read()
             
+        with open('test_book_search_events.js', 'r', encoding='utf-8') as f:
+            monitor_script += f.read()
+            
         driver.execute_script(monitor_script)
-        logger.info("成功注入组合的外部JS脚本")
+        logger.info("成功注入组合的外部JS脚本（包含测试工具）")
 
     except FileNotFoundError as e:
-        logger.error(f"JS文件未找到: {e}, 请确保 show_books_with_reasons.js 和 suggestion_display.js 在同一目录下。")
+        logger.error(f"JS文件未找到: {e}, 请确保所有JS文件在同一目录下。")
         raise
     except Exception as e:
         logger.error(f"注入监听脚本时发生错误: {str(e)}")
