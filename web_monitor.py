@@ -54,7 +54,7 @@ def start_cleanup_timer():
 # API 配置区域 - 在这里切换不同的后端API
 # ===========================================
 # 可选值: "spark" (星火API) 或 "qwen" (千问API) 或 "openai" (OpenAI API)
-API_BACKEND = "spark"  # 修改这里来切换API
+API_BACKEND = "qwen"  # 修改这里来切换API
 
 # 根据配置导入相应的API函数
 if API_BACKEND == "spark":
@@ -63,7 +63,7 @@ if API_BACKEND == "spark":
     logger_name = "星火API"
 elif API_BACKEND == "qwen":
     from qwen import get_qwen_suggestion as get_suggestion
-    # from qwen import get_qwen_books_with_reasons as get_books_with_reasons  # 待实现
+    from qwen import get_qwen_books_with_reasons as get_books_with_reasons
     logger_name = "千问API"
 elif API_BACKEND == "openai":
     from openai import get_openai_suggestion as get_suggestion
