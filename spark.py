@@ -130,6 +130,9 @@ def get_spark_books_with_reasons(books: list, user_query: str) -> dict:
                 book_with_reason = book.copy() # 复制基础信息
                 book_with_reason.update(reason_data) # 添加理由
                 book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg" # 模拟封面
+                # 确保星级数据被保留
+                if 'match_stars' not in book_with_reason:
+                    book_with_reason["match_stars"] = book.get('match_stars', 0)
                 
                 final_books.append(book_with_reason)
                 
@@ -139,6 +142,9 @@ def get_spark_books_with_reasons(books: list, user_query: str) -> dict:
                 book_with_reason = book.copy()
                 book_with_reason.update(create_default_reasons(user_query, book.get('title')))
                 book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg"
+                # 确保星级数据被保留
+                if 'match_stars' not in book_with_reason:
+                    book_with_reason["match_stars"] = book.get('match_stars', 0)
                 final_books.append(book_with_reason)
 
     logger.info(f"已完成所有书籍的推荐理由生成")

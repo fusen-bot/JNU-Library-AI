@@ -257,6 +257,7 @@ def get_books_with_reasons_api():
                     "author": book.get('author', '未知作者'),
                     "isbn": book.get('isbn', f'978711100000{i+1}'),
                     "cover_url": f"https://example.com/cover{i+1}.jpg",
+                    "match_stars": book.get('match_stars', 0),  # 添加星级数据
                     "reasons_loading": True  # 标记理由正在加载
                 }
                 basic_books.append(basic_book)

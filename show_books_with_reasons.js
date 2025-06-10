@@ -146,6 +146,7 @@ function createBooksReasonContainer(container, books) {
         
         // 根据match_stars添加星星
         const stars = book.match_stars || 0;
+        
         for (let i = 0; i < 3; i++) {
             const star = document.createElement('span');
             star.textContent = i < stars ? '★' : '☆';
