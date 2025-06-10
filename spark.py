@@ -52,9 +52,11 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
   },
   "social_reason": {
     "departments": [
-      {"name": "计算机科学与工程学院", "rate": 0.85},
-      {"name": "物联网工程学院", "rate": 0.72},
-      {"name": "理学院", "rate": 0.31}
+      {"name": "人文学院", "rate": 0.85},
+      {"name": "人工智能与计算机学院", "rate": 0.72},
+      {"name": "物联网工程学院", "rate": 0.52},
+      {"name": "设计学院", "rate": 0.31},
+      {"name": "你所在学院的借阅率", "rate": 0.90}
     ]
   }
 }"""
@@ -69,6 +71,7 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
             {"role": "user", "content": user_prompt}
         ],
         "temperature": 0.3,
+        "extra_body": {"enable_thinking": False},
         "max_tokens": 400  # 减少token，因为任务更简单
     }
     
