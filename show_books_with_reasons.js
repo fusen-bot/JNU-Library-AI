@@ -237,7 +237,7 @@ function createBooksReasonContainer(container, books) {
 // 辅助函数: 创建浮层的详细内容
 function createDetailContentHTML(book) {
     // 生成左右分栏布局：
-    let departmentsHTML = '<div style="margin-bottom: 6px;"><strong>📊 各学院借阅率:</strong></div>';
+    let departmentsHTML = '';
     book.social_reason.departments.forEach(dept => {
         const percentage = Math.round(dept.rate * 100);
         const barWidth = dept.rate * 100;
@@ -267,13 +267,16 @@ function createDetailContentHTML(book) {
     return `
         <div style="display: flex; gap: 15px;">
             <div style="flex: 1;">
-                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 推荐依据</h4>
+                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">推荐依据</h4>
                 <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${userIntent}</p>
                 <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
                 <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${appFields}</p>
             </div>
             <div style="flex: 1;">
-                <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 借阅热度</h4>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                    <h4 style="margin: 0; color: #7b68ee; font-size: 13px;">借阅热度</h4>
+                    <div style="font-size: 12px; color: #333;"><strong>📊 各学院借阅率</strong></div>
+                </div>
                 ${departmentsHTML}
             </div>
         </div>
