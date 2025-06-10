@@ -1,6 +1,6 @@
 /**
  * 新版书籍推荐理由显示组件
- * 用于展示包含逻辑分析和社交证据的书籍推荐
+ * 用于展示包含推荐依据和借阅热度的书籍推荐
  * 支持异步加载推荐理由
  */
 
@@ -227,13 +227,13 @@ function createDetailContentHTML(book) {
     return `
         <div style="display: flex; gap: 15px;">
             <div style="flex: 1;">
-                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 逻辑分析</h4>
+                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">🧠 推荐依据</h4>
                 <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${userIntent}</p>
                 <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
                 <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${appFields}</p>
             </div>
             <div style="flex: 1;">
-                <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 社交证据</h4>
+                <h4 style="margin: 0 0 8px 0; color: #7b68ee; font-size: 13px;">👥 借阅热度</h4>
                 ${departmentsHTML}
             </div>
         </div>

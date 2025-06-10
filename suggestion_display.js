@@ -354,8 +354,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                      data.books.forEach((book, index) => {
                                          console.log(`📚 书籍${index + 1}: ${book.title}`);
                                          console.log("  📖 作者:", book.author);
-                                         console.log("  🧠 逻辑分析:", book.logical_reason);
-                                         console.log("  👥 社交证据:", book.social_reason);
+                                         console.log("  🧠 推荐依据:", book.logical_reason);
+                                         console.log("  👥 借阅热度:", book.social_reason);
                                          console.log("  ---");
                                      });
                                  } else {

@@ -96,7 +96,7 @@ def find_books_by_task(query: str) -> list:
     """
     根据用户查询在实验书库中模糊匹配任务，并返回对应的书籍列表。
     """
-    # 简单的模糊匹配逻辑，将查询转换为小写以提高匹配率
+    # 简单的模糊逻辑分析，将查询转换为小写以提高匹配率
     normalized_query = query.lower()
     
     for task_keyword, books in BOOK_LIBRARY.items():

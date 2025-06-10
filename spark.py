@@ -239,20 +239,20 @@ def validate_book_data(book: dict) -> bool:
         if field not in book:
             return False
     
-    # 验证逻辑分析结构
+    # 验证推荐依据结构
     logical_fields = ["user_query_intent", "book_core_concepts", "application_fields_match"]
     for field in logical_fields:
         if field not in book["logical_reason"]:
             return False
     
-    # 验证社交证据结构
+    # 验证借阅热度结构
     if "departments" not in book["social_reason"]:
         return False
     
     return True
 
 def create_default_logical_reason(user_query: str) -> dict:
-    """创建默认的逻辑分析"""
+    """创建默认的推荐依据"""
     return {
         "user_query_intent": f"用户搜索：{user_query}",
         "book_core_concepts": ["本书核心概念1", "本书核心概念2"],
@@ -260,7 +260,7 @@ def create_default_logical_reason(user_query: str) -> dict:
     }
 
 def create_default_social_reason() -> dict:
-    """创建默认的社交证据"""
+    """创建默认的借阅热度"""
     return {
         "departments": [
             {"name": "计算机科学与工程学院", "rate": 0.6},
