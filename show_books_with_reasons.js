@@ -117,8 +117,47 @@ function createBooksReasonContainer(container, books) {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
         `;
-        bookAuthor.textContent = `作者：${book.author}`;
+        
+        // 作者文本
+        const authorText = document.createElement('span');
+        authorText.style.cssText = `
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        `;
+        authorText.textContent = `作者：${book.author}`;
+        
+        // 星级显示
+        const starsContainer = document.createElement('div');
+        starsContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+            margin-right: 20px;
+        `;
+        
+        // 根据match_stars添加星星
+        const stars = book.match_stars || 0;
+        for (let i = 0; i < 3; i++) {
+            const star = document.createElement('span');
+            star.textContent = i < stars ? '★' : '☆';
+            star.style.cssText = `
+                color: ${i < stars ? '#FFD700' : '#ddd'};
+                font-size: 12px;
+            `;
+            starsContainer.appendChild(star);
+        }
+        
+        bookAuthor.appendChild(authorText);
+        bookAuthor.appendChild(starsContainer);
         
         bookItem.appendChild(bookHeader);
         bookItem.appendChild(bookAuthor);

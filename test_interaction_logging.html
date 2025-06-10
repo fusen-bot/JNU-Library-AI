@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互日志记录功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-title {
+            color: #333;
+            border-bottom: 2px solid #05a081;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .book-item {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .book-item:hover {
+            border-color: #05a081;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .book-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .book-author {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .detail-panel {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #05a081;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 10px;
+        }
+        
+        .button {
+            background: #05a081;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .button:hover {
+            background: #046e5c;
+        }
+        
+        .stats-display {
+            background: #e8f4f2;
+            border: 1px solid #05a081;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .log-display {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 用户交互行为日志记录功能测试</h1>
+    
+    <!-- 模拟搜索区域 -->
+    <div class="test-section">
+        <h2 class="test-title">1. 检索耗时测试</h2>
+        <p>在下面的输入框中输入内容，模拟搜索过程：</p>
+        <input type="text" class="search-input" id="search-input" placeholder="输入书籍关键词进行搜索...">
+        <button class="button" onclick="simulateSearch()">开始搜索</button>
+        <button class="button" onclick="showResults()">显示结果</button>
+        <div id="search-status"></div>
+    </div>
+
+    <!-- 模拟推荐结果区域 -->
+    <div class="test-section">
+        <h2 class="test-title">2. 结果页面停留时长测试</h2>
+        <p>下面是模拟的推荐结果区域，用于测试停留时长：</p>
+        <div id="results-area" style="display: none;">
+            <div class="book-item" data-book-id="book1" onmouseenter="showPanel('book1')" onmouseleave="hidePanel('book1')">
+                <div class="book-title">《深入理解计算机系统》</div>
+                <div class="book-author">作者: Randal E. Bryant</div>
+                <div class="detail-panel" id="panel-book1">
+                    <h4>📖 书籍详情面板</h4>
+                    <p>这是一本关于计算机系统的经典教材...</p>
+                    <p>将鼠标悬停在这里测试面板停留时长记录</p>
+                </div>
+            </div>
+            
+            <div class="book-item" data-book-id="book2" onmouseenter="showPanel('book2')" onmouseleave="hidePanel('book2')">
+                <div class="book-title">《算法导论》</div>
+                <div class="book-author">作者: Thomas H. Cormen</div>
+                <div class="detail-panel" id="panel-book2">
+                    <h4>📖 书籍详情面板</h4>
+                    <p>算法领域的权威教材...</p>
+                    <p>将鼠标悬停在这里测试面板停留时长记录</p>
+                </div>
+            </div>
+            
+            <div class="book-item" data-book-id="book3" onmouseenter="showPanel('book3')" onmouseleave="hidePanel('book3')">
+                <div class="book-title">《Java核心技术》</div>
+                <div class="book-author">作者: Cay S. Horstmann</div>
+                <div class="detail-panel" id="panel-book3">
+                    <h4>📖 书籍详情面板</h4>
+                    <p>Java编程的实用指南...</p>
+                    <p>将鼠标悬停在这里测试面板停留时长记录</p>
+                </div>
+            </div>
+        </div>
+        <button class="button" onclick="hideResults()">隐藏结果</button>
+    </div>
+
+    <!-- 统计信息显示区域 -->
+    <div class="test-section">
+        <h2 class="test-title">3. 实时统计信息</h2>
+        <button class="button" onclick="updateStats()">刷新统计</button>
+        <button class="button" onclick="clearLogs()">清除日志</button>
+        <div id="stats-display" class="stats-display">
+            <p>点击"刷新统计"查看当前会话的统计信息</p>
+        </div>
+    </div>
+
+    <!-- 原始日志显示区域 -->
+    <div class="test-section">
+        <h2 class="test-title">4. 原始日志输出</h2>
+        <div id="log-display" class="log-display">
+            <p>日志信息将在这里显示...</p>
+        </div>
+    </div>
+
+    <!-- 加载交互日志记录器 -->
+    <script src="interaction_logger.js"></script>
+    
+    <script>
+        // 测试功能实现
+        let searchTimeout;
+        let resultsVisible = false;
+        
+        // 模拟搜索功能
+        function simulateSearch() {
+            const input = document.getElementById('search-input');
+            const query = input.value.trim();
+            
+            if (!query) {
+                alert('请输入搜索关键词');
+                return;
+            }
+            
+            // 开始搜索计时
+            if (window.interactionLogger) {
+                window.interactionLogger.setCurrentQuery(query);
+                window.interactionLogger.startSearch();
+            }
+            
+            const statusDiv = document.getElementById('search-status');
+            statusDiv.innerHTML = '<p style="color: #05a081;">🔍 正在搜索中...</p>';
+            
+            // 模拟搜索延迟
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                statusDiv.innerHTML = '<p style="color: #28a745;">✅ 搜索完成！点击"显示结果"查看推荐</p>';
+            }, 1000 + Math.random() * 2000); // 1-3秒的随机延迟
+        }
+        
+        // 显示搜索结果
+        function showResults() {
+            const resultsArea = document.getElementById('results-area');
+            resultsArea.style.display = 'block';
+            resultsVisible = true;
+            
+            // 结束搜索计时，开始结果页面计时
+            if (window.interactionLogger) {
+                window.interactionLogger.endSearch();
+                window.interactionLogger.resultsDisplayed();
+            }
+            
+            updateLogDisplay('📄 显示搜索结果');
+        }
+        
+        // 隐藏搜索结果
+        function hideResults() {
+            const resultsArea = document.getElementById('results-area');
+            resultsArea.style.display = 'none';
+            resultsVisible = false;
+            
+            // 记录结果页面隐藏
+            if (window.interactionLogger) {
+                window.interactionLogger.resultsHidden();
+            }
+            
+            updateLogDisplay('📄 隐藏搜索结果');
+        }
+        
+        // 显示书籍详情面板
+        function showPanel(bookId) {
+            const panel = document.getElementById(`panel-${bookId}`);
+            panel.style.display = 'block';
+            
+            // 记录面板打开
+            if (window.interactionLogger) {
+                const bookTitle = panel.parentElement.querySelector('.book-title').textContent;
+                window.interactionLogger.panelOpened(bookId, bookTitle);
+            }
+            
+            updateLogDisplay(`📖 打开书籍面板: ${bookId}`);
+        }
+        
+        // 隐藏书籍详情面板
+        function hidePanel(bookId) {
+            const panel = document.getElementById(`panel-${bookId}`);
+            panel.style.display = 'none';
+            
+            // 记录面板关闭
+            if (window.interactionLogger) {
+                window.interactionLogger.panelClosed();
+            }
+            
+            updateLogDisplay(`📖 关闭书籍面板: ${bookId}`);
+        }
+        
+        // 更新统计信息
+        function updateStats() {
+            if (!window.interactionLogger) {
+                document.getElementById('stats-display').innerHTML = '<p style="color: red;">❌ 交互日志记录器未加载</p>';
+                return;
+            }
+            
+            const stats = window.interactionLogger.getSessionStats();
+            const statsHtml = `
+                <h4>📊 会话统计信息</h4>
+                <p><strong>会话ID:</strong> ${stats.sessionId}</p>
+                
+                <h5>🔍 搜索统计:</h5>
+                <ul>
+                    <li>总搜索次数: ${stats.searchStats.totalCount}</li>
+                    <li>总搜索耗时: ${stats.searchStats.totalDuration}ms</li>
+                    <li>平均搜索耗时: ${stats.searchStats.averageDuration}ms</li>
+                </ul>
+                
+                <h5>📄 结果页面统计:</h5>
+                <ul>
+                    <li>总停留时长: ${stats.resultsStats.totalDisplayDuration}ms</li>
+                    <li>当前是否显示: ${stats.resultsStats.currentlyDisplayed ? '是' : '否'}</li>
+                </ul>
+                
+                <h5>📖 面板统计:</h5>
+                <ul>
+                    <li>总面板停留时长: ${stats.panelStats.totalDuration}ms</li>
+                    <li>已查看的书籍数量: ${stats.panelStats.uniqueBooksViewed}</li>
+                    <li>当前是否有面板打开: ${stats.panelStats.currentlyOpen ? '是' : '否'}</li>
+                </ul>
+                
+                <h5>📚 各书籍停留时长:</h5>
+                <ul>
+                    ${Object.entries(stats.panelStats.bookDurations).map(([bookId, duration]) => 
+                        `<li>${bookId}: ${duration}ms</li>`
+                    ).join('') || '<li>暂无数据</li>'}
+                </ul>
+            `;
+            
+            document.getElementById('stats-display').innerHTML = statsHtml;
+        }
+        
+        // 清除日志
+        function clearLogs() {
+            document.getElementById('log-display').innerHTML = '<p>日志已清除</p>';
+        }
+        
+        // 更新日志显示
+        function updateLogDisplay(message) {
+            const logDiv = document.getElementById('log-display');
+            const timestamp = new Date().toLocaleTimeString();
+            const newLog = `<div>[${timestamp}] ${message}</div>`;
+            logDiv.innerHTML = newLog + logDiv.innerHTML;
+        }
+        
+        // 页面加载完成后的初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            updateLogDisplay('📊 测试页面已加载');
+            
+            // 检查交互日志记录器是否正常加载
+            setTimeout(() => {
+                if (window.interactionLogger) {
+                    updateLogDisplay('✅ 交互日志记录器已成功加载');
+                    updateStats();
+                } else {
+                    updateLogDisplay('❌ 交互日志记录器加载失败');
+                }
+            }, 1000);
+        });
+        
+        // 定期更新统计信息
+        setInterval(updateStats, 5000);
+    </script>
+</body>
+</html>
