@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         pollingInterval = setInterval(() => {
             pollTaskStatus(taskId);
-        }, 3000);
+        }, 500);
     }
     
     function stopTaskPolling() {
