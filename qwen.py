@@ -36,15 +36,7 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
     "book_core_concepts": ["本书的核心概念1", "本书的核心概念2"],
     "application_fields_match": ["本书与哪些应用领域匹配1", "本书与哪些应用领域匹配2"]
   },
-  "social_reason": {
-    "departments": [
-      {"name": "人文学院", "rate": 0.85},
-      {"name": "人工智能与计算机学院", "rate": 0.72},
-      {"name": "物联网工程学院", "rate": 0.52},
-      {"name": "设计学院", "rate": 0.31},
-      {"name": "你所在学院的借阅率", "rate": 0.90}
-    ]
-  }
+
 }
 
 注意：user_query_intent字段必须严格按照"检索'关键词' ➡️ 意图 ➡️ 推荐类型"的格式，简洁明了。"""
@@ -130,6 +122,12 @@ def get_qwen_books_with_reasons(books: list, user_query: str) -> dict:
                 if 'match_stars' not in book_with_reason:
                     book_with_reason["match_stars"] = book.get('match_stars', 0)
                 
+                # 优先使用书籍数据中的自定义借阅热度
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
                 final_books.append(book_with_reason)
                 
             except Exception as exc:
@@ -141,6 +139,13 @@ def get_qwen_books_with_reasons(books: list, user_query: str) -> dict:
                 # 确保星级数据被保留
                 if 'match_stars' not in book_with_reason:
                     book_with_reason["match_stars"] = book.get('match_stars', 0)
+                
+                # 必须使用书籍数据中的自定义借阅热度，如果没有则使用默认值
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
                 final_books.append(book_with_reason)
 
     logger.info(f"已完成所有书籍的推荐理由生成")
@@ -158,9 +163,17 @@ def create_default_reasons(user_query, book_title):
             "book_core_concepts": ["无法生成核心概念"],
             "application_fields_match": ["无法生成应用领域匹配"]
         },
-        "social_reason": {
-            "departments": [{"name": "理学院", "rate": 0.1}]
-        }
+        "social_reason": create_default_social_reason()
+    }
+
+def create_default_social_reason() -> dict:
+    """创建默认的借阅热度"""
+    return {
+        "departments": [
+            {"name": "计算机科学与工程学院", "rate": 0.6},
+            {"name": "理学院", "rate": 0.3},
+            {"name": "商学院", "rate": 0.2}
+        ]
     }
 
 # ===========================================

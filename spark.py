@@ -49,17 +49,10 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
     "user_query_intent": "对用户检索意图的分析",
     "book_core_concepts": ["本书的核心概念1", "本书的核心概念2"],
     "application_fields_match": ["本书与哪些应用领域匹配1", "本书与哪些应用领域匹配2"]
-  },
-  "social_reason": {
-    "departments": [
-      {"name": "人文学院", "rate": 0.85},
-      {"name": "人工智能与计算机学院", "rate": 0.72},
-      {"name": "物联网工程学院", "rate": 0.52},
-      {"name": "设计学院", "rate": 0.31},
-      {"name": "你所在学院的借阅率", "rate": 0.90}
-    ]
   }
-}"""
+}
+
+注意：不需要生成借阅热度信息(social_reason)，只专注于推荐依据(logical_reason)的生成。"""
 
     # 新版用户提示词
     user_prompt = f'用户检索词是："{user_query}"。请为书籍《{book_title}》（作者：{book_author}）生成推荐理由。'
@@ -134,6 +127,12 @@ def get_spark_books_with_reasons(books: list, user_query: str) -> dict:
                 if 'match_stars' not in book_with_reason:
                     book_with_reason["match_stars"] = book.get('match_stars', 0)
                 
+                # 必须使用书籍数据中的自定义借阅热度，如果没有则使用默认值
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
                 final_books.append(book_with_reason)
                 
             except Exception as exc:
@@ -145,6 +144,13 @@ def get_spark_books_with_reasons(books: list, user_query: str) -> dict:
                 # 确保星级数据被保留
                 if 'match_stars' not in book_with_reason:
                     book_with_reason["match_stars"] = book.get('match_stars', 0)
+                
+                # 必须使用书籍数据中的自定义借阅热度，如果没有则使用默认值
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
                 final_books.append(book_with_reason)
 
     logger.info(f"已完成所有书籍的推荐理由生成")
@@ -239,7 +245,7 @@ def parse_spark_json_response(raw_content: str, user_query: str) -> dict:
 
 def validate_book_data(book: dict) -> bool:
     """验证书籍数据的完整性"""
-    required_fields = ["title", "author", "logical_reason", "social_reason"]
+    required_fields = ["title", "author", "logical_reason"]
     
     for field in required_fields:
         if field not in book:
@@ -251,9 +257,7 @@ def validate_book_data(book: dict) -> bool:
         if field not in book["logical_reason"]:
             return False
     
-    # 验证借阅热度结构
-    if "departments" not in book["social_reason"]:
-        return False
+    # 注意：不再验证social_reason，因为它将由预定义数据提供
     
     return True
 
