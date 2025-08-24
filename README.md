@@ -14,12 +14,6 @@
 ├── start_services.sh          # 启动脚本
 ├── README.md                  # 本文档
 └── tests/
-    ├── test_api_contract.py
-    ├── test_llm_integration.py
-    ├── backend_integration_test.py
-    ├── test_frontend_api.py
-    ├── test_ui_upgrade.py
-    └── test_frontend_integration.html
 这个项目实现本地监听网页输入行为并提供智能反馈提示关键词。
 
 ## 功能特点
