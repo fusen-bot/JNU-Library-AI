@@ -405,6 +405,9 @@ def inject_monitor_script(driver):
         with open('test_book_search_events.js', 'r', encoding='utf-8') as f:
             monitor_script += f.read()
             
+        # 添加一个标志，用于检测脚本是否已被注入
+        monitor_script += "\nwindow.jnuLibraryAiInjected = true;"
+            
         driver.execute_script(monitor_script)
         logger.info("成功注入组合的外部JS脚本（包含测试工具）")
 
@@ -432,12 +435,12 @@ def start_browser():
         logger.info("正在访问目标网页...")
         driver.get("https://opac.jiangnan.edu.cn/#/Home")
         
-        logger.info("浏览器已启动，正在等待页面加载...")
+        logger.info("浏览器已启动，等待用户登录...")
         time.sleep(3)  # 给React应用足够的加载时间
         
-        logger.info("注入监听脚本...")
-        inject_monitor_script(driver)
-        logger.info("监听脚本注入完成")
+        # 不再在这里注入脚本，等待用户登录后再注入
+        # inject_monitor_script(driver) 
+        # logger.info("监听脚本注入完成")
         
         return driver
     except Exception as e:
@@ -460,9 +463,68 @@ if __name__ == "__main__":
     # 启动浏览器
     driver = start_browser()
     
+    # 智能监控主循环
+    script_injected = False  # 跟踪脚本是否已注入
+    
     try:
         while True:
-            time.sleep(1)
+            try:
+                current_url = driver.current_url
+                logger.debug(f"当前URL: {current_url}")
+                
+                # 检查是否在目标网站
+                is_on_target_site = "opac.jiangnan.edu.cn" in current_url
+                # 检查是否在登录页面
+                is_on_login_page = "authserver.jiangnan.edu.cn" in current_url
+                
+                if is_on_target_site:
+                    # 在目标网站上，检查脚本状态
+                    try:
+                        is_script_active = driver.execute_script("return window.jnuLibraryAiInjected === true;")
+                    except Exception:
+                        is_script_active = False
+                    
+                    if not is_script_active:
+                        # 脚本未注入或已失效，需要注入
+                        logger.info("检测到目标网页，准备注入监控脚本...")
+                        time.sleep(2)  # 等待页面资源加载完成
+                        inject_monitor_script(driver)
+                        script_injected = True
+                        logger.info("脚本注入成功，监控已启动")
+                    elif not script_injected:
+                        # 脚本已存在但我们还没有记录，说明是页面刷新后的状态
+                        script_injected = True
+                        logger.info("检测到脚本已存在，监控继续运行")
+                
+                elif is_on_login_page:
+                    # 在登录页面，等待用户完成登录
+                    if script_injected:
+                        logger.info("检测到跳转至登录页面，脚本将在返回后重新注入")
+                        script_injected = False
+                    else:
+                        logger.debug("等待用户完成登录认证...")
+                
+                else:
+                    # 在其他页面（可能是初始加载或其他外部链接）
+                    if script_injected:
+                        logger.info(f"检测到导航至外部页面: {current_url}")
+                        script_injected = False
+                
+            except Exception as e:
+                logger.error(f"监控循环出错 (可能浏览器已关闭): {e}")
+                logger.info("将在5秒后尝试重启浏览器...")
+                time.sleep(5)
+                try:
+                    driver.quit()
+                except Exception as quit_e:
+                    logger.error(f"关闭旧浏览器实例时出错: {quit_e}")
+                
+                logger.info("正在尝试重启浏览器...")
+                driver = start_browser()
+                script_injected = False  # 重启后重置状态
+            
+            time.sleep(3)  # 每3秒检查一次
+            
     except KeyboardInterrupt:
         logger.info("正在关闭系统...")
         # 关闭线程池
