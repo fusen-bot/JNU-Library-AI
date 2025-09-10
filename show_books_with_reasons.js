@@ -311,7 +311,16 @@ function addInteractionHandlers(container, books) {
             
             console.log(`📚 用户点击了书籍: ${book.title}`);
             
-            // 记录点击事件
+            // 使用新的Session管理器记录点击事件
+            if (window.recordBookClick) {
+                window.recordBookClick({
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn
+                });
+            }
+            
+            // 保留旧的测试事件记录以兼容现有测试
             if (window.__testSearchEvents) {
                 window.__testSearchEvents.push({
                     timestamp: new Date().toISOString(),
@@ -334,6 +343,11 @@ function addInteractionHandlers(container, books) {
             // 执行搜索跳转
             try {
                 searchBookInLibrary(book.title, book.author, book.isbn);
+                
+                // 结束当前搜索会话
+                if (window.endSearchSession) {
+                    window.endSearchSession('book_clicked');
+                }
                 
                 // 隐藏推荐面板
                 setTimeout(() => {
@@ -359,6 +373,15 @@ function addInteractionHandlers(container, books) {
 
         // 增强鼠标进入事件
         item.addEventListener('mouseenter', function() {
+            // 记录书籍悬停开始事件
+            if (window.recordBookHover) {
+                window.recordBookHover({
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn
+                }, 'hover_start');
+            }
+            
             // 清除可能存在的隐藏定时器
             clearTimeout(hidePanelTimeout);
 
@@ -418,6 +441,25 @@ function addInteractionHandlers(container, books) {
             item.style.boxShadow = 'none';
         });
     };
+
+    // 为每个书籍项添加鼠标离开事件
+    allBookItems.forEach(item => {
+        const itemIsbn = item.dataset.bookIsbn;
+        const book = books.find(b => b.isbn === itemIsbn);
+        
+        if (book && book.logical_reason && book.social_reason) {
+            item.addEventListener('mouseleave', function() {
+                // 记录书籍悬停结束事件
+                if (window.recordBookHover) {
+                    window.recordBookHover({
+                        title: book.title,
+                        author: book.author,
+                        isbn: book.isbn
+                    }, 'hover_end');
+                }
+            });
+        }
+    });
 
     // 鼠标离开整个容器时，延迟隐藏浮层
     container.addEventListener('mouseleave', () => {

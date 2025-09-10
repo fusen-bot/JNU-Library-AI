@@ -13,6 +13,7 @@ import requests
 import logging
 import re
 import uuid
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from experimental_book_library import find_books_by_task
 
@@ -342,6 +343,123 @@ def get_task_status(task_id):
         logger.error(f"获取任务状态时发生错误: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@app.route('/api/interaction_events', methods=['POST'])
+def handle_interaction_events():
+    """
+    新的API端点：接收前端发送的交互事件数据
+    支持Session ID和批量事件处理
+    """
+    try:
+        data = request.json
+        session_id = data.get('session_id', '')
+        events = data.get('events', [])
+        
+        if not session_id:
+            return jsonify({
+                "status": "error",
+                "error": "缺少session_id参数"
+            }), 400
+        
+        if not events or not isinstance(events, list):
+            return jsonify({
+                "status": "error", 
+                "error": "缺少events参数或格式错误"
+            }), 400
+        
+        logger.info(f"收到交互事件数据: Session ID={session_id}, 事件数量={len(events)}")
+        
+        # 导入统计管理器
+        from interaction_stats_manager import stats_manager
+        
+        # 处理每个事件
+        processed_events = []
+        for event in events:
+            try:
+                # 验证事件格式
+                if not isinstance(event, dict) or 'event_type' not in event:
+                    logger.warning(f"跳过无效事件: {event}")
+                    continue
+                
+                # 添加服务器接收时间戳
+                event['server_received_timestamp'] = datetime.now().isoformat()
+                
+                # 保存事件到文件系统
+                saved_file = stats_manager.save_session_event(session_id, event)
+                if saved_file:
+                    processed_events.append(event['event_type'])
+                    logger.debug(f"事件已保存: {event['event_type']} -> {saved_file}")
+                
+            except Exception as e:
+                logger.error(f"处理单个事件时发生错误: {str(e)}, 事件: {event}")
+                continue
+        
+        # 返回处理结果
+        response = {
+            "status": "success",
+            "session_id": session_id,
+            "events_received": len(events),
+            "events_processed": len(processed_events),
+            "processed_event_types": processed_events,
+            "message": f"成功处理 {len(processed_events)}/{len(events)} 个事件"
+        }
+        
+        logger.info(f"交互事件处理完成: {response['message']}")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"处理交互事件时发生错误: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/api/sessions', methods=['GET'])
+def list_sessions():
+    """
+    API端点：获取Session列表
+    """
+    try:
+        days = request.args.get('days', 7, type=int)
+        
+        # 导入统计管理器
+        from interaction_stats_manager import stats_manager
+        
+        sessions = stats_manager.list_sessions(days=days)
+        
+        return jsonify({
+            "status": "success",
+            "sessions": sessions,
+            "total_sessions": len(sessions),
+            "days": days
+        })
+        
+    except Exception as e:
+        logger.error(f"获取Session列表时发生错误: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/api/sessions/<session_id>', methods=['GET'])
+def get_session_detail(session_id):
+    """
+    API端点：获取特定Session的详细信息
+    """
+    try:
+        # 导入统计管理器
+        from interaction_stats_manager import stats_manager
+        
+        session_summary = stats_manager.get_session_summary(session_id)
+        
+        if session_summary is None:
+            return jsonify({
+                "status": "error",
+                "error": f"Session {session_id} 不存在"
+            }), 404
+        
+        return jsonify({
+            "status": "success",
+            "session": session_summary
+        })
+        
+    except Exception as e:
+        logger.error(f"获取Session详情时发生错误: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 # ===========================================
 # 原有的 /input 端点保持不变
 # ===========================================
@@ -395,21 +513,28 @@ def handle_input():
 def inject_monitor_script(driver):
     monitor_script = ""
     try:
-        # 读取三个核心JS文件的内容
-        with open('show_books_with_reasons.js', 'r', encoding='utf-8') as f:
-            monitor_script += f.read()
+        # 读取四个核心JS文件的内容，按依赖顺序加载
+        # 1. 首先加载Session管理器
+        with open('session_manager.js', 'r', encoding='utf-8') as f:
+            monitor_script += f.read() + "\n\n"
         
+        # 2. 加载书籍推荐理由显示组件
+        with open('show_books_with_reasons.js', 'r', encoding='utf-8') as f:
+            monitor_script += f.read() + "\n\n"
+        
+        # 3. 加载建议显示脚本
         with open('suggestion_display.js', 'r', encoding='utf-8') as f:
-            monitor_script += f.read()
+            monitor_script += f.read() + "\n\n"
             
+        # 4. 加载测试工具（可选）
         with open('test_book_search_events.js', 'r', encoding='utf-8') as f:
-            monitor_script += f.read()
+            monitor_script += f.read() + "\n\n"
             
         # 添加一个标志，用于检测脚本是否已被注入
         monitor_script += "\nwindow.jnuLibraryAiInjected = true;"
             
         driver.execute_script(monitor_script)
-        logger.info("成功注入组合的外部JS脚本（包含测试工具）")
+        logger.info("成功注入组合的外部JS脚本（包含Session管理器和测试工具）")
 
     except FileNotFoundError as e:
         logger.error(f"JS文件未找到: {e}, 请确保所有JS文件在同一目录下。")

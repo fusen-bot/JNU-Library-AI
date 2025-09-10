@@ -317,6 +317,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     debounceTimer = setTimeout(() => {
                         const value = e.target.value;
                         if (value.length > 3) {
+                            // 开始搜索会话记录
+                            if (window.startSearchSession) {
+                                window.startSearchSession(value);
+                            }
+                            
                             // 请求新的书籍推荐API
                             fetch('http://localhost:5001/api/books_with_reasons', {
                                 method: 'POST',
@@ -324,7 +329,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    query: value
+                                    query: value,
+                                    session_id: window.JNULibrarySessionManager ? window.JNULibrarySessionManager.getSessionId() : null
                                 })
                             })
                             .then(response => response.json())
@@ -616,7 +622,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: inputValue })
+                body: JSON.stringify({ 
+                    query: inputValue,
+                    session_id: window.JNULibrarySessionManager ? window.JNULibrarySessionManager.getSessionId() : null
+                })
             });
             
             if (!response.ok) {
@@ -666,9 +675,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputValue = event.target.value.trim();
         const displayArea = document.getElementById('suggestion-display');
 
-        if (inputValue.length < 3) {
+        if (inputValue.length < 2) {
             if (displayArea) hideDisplayArea(displayArea);
             stopTaskPolling();
+            // 结束当前搜索会话
+            if (window.endSearchSession) {
+                window.endSearchSession('input_too_short');
+            }
             return;
         }
         

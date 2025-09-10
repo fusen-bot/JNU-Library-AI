@@ -26,6 +26,253 @@ class StatsManager:
                         self.daily_dir, self.report_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
     
+    def save_session_event(self, session_id: str, event: Dict[str, Any]) -> Optional[Path]:
+        """
+        保存Session事件到文件
+        使用JSON Lines格式，一个Session一个文件，事件追加写入
+
+        Args:
+            session_id: 会话ID（格式：交互 XX_YYYYMMDD）
+            event: 事件数据字典
+
+        Returns:
+            保存的文件路径，如果保存失败返回None
+        """
+        try:
+            # 将Session ID转换为文件名格式（替换空格为下划线，保持中文字符）
+            # 例如：交互 01_20250905 -> 交互_01_20250905.jsonl
+            filename = session_id.replace(' ', '_') + '.jsonl'
+            session_file = self.session_dir / filename
+
+            # 添加事件记录时间
+            event_with_metadata = {
+                **event,
+                'saved_timestamp': datetime.now().isoformat(),
+                'session_id': session_id
+            }
+
+            # 追加写入到JSON Lines文件
+            with open(session_file, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(event_with_metadata, ensure_ascii=False) + '\n')
+
+            return session_file
+
+        except Exception as e:
+            print(f"保存Session事件失败: {str(e)}")
+            return None
+    
+    def load_session_events(self, session_id: str) -> List[Dict[str, Any]]:
+        """
+        加载指定Session的所有事件
+
+        Args:
+            session_id: 会话ID（格式：交互 XX_YYYYMMDD）
+
+        Returns:
+            事件列表
+        """
+        # 将Session ID转换为文件名格式
+        filename = session_id.replace(' ', '_') + '.jsonl'
+        session_file = self.session_dir / filename
+
+        if not session_file.exists():
+            return []
+
+        events = []
+        try:
+            with open(session_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        event = json.loads(line)
+                        events.append(event)
+        except Exception as e:
+            print(f"加载Session事件失败: {str(e)}")
+
+        return events
+    
+    def list_sessions(self, days: int = 7) -> List[Dict[str, Any]]:
+        """
+        列出最近几天的Session
+
+        Args:
+            days: 天数
+
+        Returns:
+            Session摘要列表
+        """
+        sessions = []
+        cutoff_date = datetime.now() - timedelta(days=days)
+
+        for session_file in self.session_dir.glob("*.jsonl"):
+            try:
+                # 从文件修改时间判断是否在时间范围内
+                if datetime.fromtimestamp(session_file.stat().st_mtime) < cutoff_date:
+                    continue
+
+                # 从文件名解析Session ID（将下划线转换回空格）
+                # 例如：交互_01_20250905.jsonl -> 交互 01_20250905
+                filename = session_file.stem
+                session_id = filename.replace('_', ' ', 1)  # 只替换第一个下划线
+
+                events = self.load_session_events(session_id)
+
+                if not events:
+                    continue
+
+                # 分析Session基本信息
+                session_start = None
+                session_end = None
+                event_types = {}
+                search_sessions = []
+
+                for event in events:
+                    event_type = event.get('event_type', 'unknown')
+                    event_types[event_type] = event_types.get(event_type, 0) + 1
+
+                    if event_type == 'session_start' and not session_start:
+                        session_start = event.get('timestamp')
+                    elif event_type == 'session_end':
+                        session_end = event.get('timestamp')
+                    elif event_type == 'search_session_start':
+                        search_sessions.append({
+                            'search_id': event.get('search_id'),
+                            'query': event.get('query'),
+                            'timestamp': event.get('timestamp')
+                        })
+
+                sessions.append({
+                    'session_id': session_id,
+                    'session_start': session_start,
+                    'session_end': session_end,
+                    'total_events': len(events),
+                    'event_types': event_types,
+                    'search_sessions_count': len(search_sessions),
+                    'search_sessions': search_sessions[:5],  # 只显示前5个
+                    'file_path': str(session_file)
+                })
+
+            except Exception as e:
+                print(f"分析Session文件失败 {session_file}: {str(e)}")
+                continue
+
+        # 按开始时间排序
+        sessions.sort(key=lambda x: x.get('session_start', ''), reverse=True)
+        return sessions
+    
+    def get_session_summary(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取特定Session的详细摘要
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            Session摘要字典
+        """
+        events = self.load_session_events(session_id)
+        
+        if not events:
+            return None
+        
+        # 分析Session数据
+        session_start = None
+        session_end = None
+        search_sessions = []
+        book_interactions = {}
+        event_timeline = []
+        
+        for event in events:
+            event_type = event.get('event_type', 'unknown')
+            timestamp = event.get('timestamp')
+            
+            event_timeline.append({
+                'timestamp': timestamp,
+                'event_type': event_type,
+                'summary': self._get_event_summary(event)
+            })
+            
+            if event_type == 'session_start':
+                session_start = timestamp
+            elif event_type == 'session_end':
+                session_end = timestamp
+            elif event_type == 'search_session_start':
+                search_sessions.append({
+                    'search_id': event.get('search_id'),
+                    'query': event.get('query'),
+                    'start_time': timestamp
+                })
+            elif event_type == 'search_session_end':
+                # 更新对应的搜索会话结束信息
+                search_id = event.get('search_id')
+                for search in search_sessions:
+                    if search['search_id'] == search_id:
+                        search.update({
+                            'end_time': timestamp,
+                            'duration_ms': event.get('duration_ms'),
+                            'books_clicked_count': event.get('books_clicked_count', 0),
+                            'end_reason': event.get('end_reason')
+                        })
+                        break
+            elif event_type in ['book_clicked', 'book_hover_start', 'book_hover_end']:
+                book_isbn = event.get('book_isbn', 'unknown')
+                book_title = event.get('book_title', 'unknown')
+                
+                if book_isbn not in book_interactions:
+                    book_interactions[book_isbn] = {
+                        'isbn': book_isbn,
+                        'title': book_title,
+                        'click_count': 0,
+                        'hover_count': 0,
+                        'total_hover_time': 0
+                    }
+                
+                if event_type == 'book_clicked':
+                    book_interactions[book_isbn]['click_count'] += 1
+                elif event_type == 'book_hover_start':
+                    book_interactions[book_isbn]['hover_count'] += 1
+                elif event_type == 'book_hover_end':
+                    hover_duration = event.get('hover_duration_ms', 0)
+                    book_interactions[book_isbn]['total_hover_time'] += hover_duration
+        
+        session_duration = None
+        if session_start and session_end:
+            start_dt = datetime.fromisoformat(session_start.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(session_end.replace('Z', '+00:00'))
+            session_duration = int((end_dt - start_dt).total_seconds() * 1000)
+        
+        return {
+            'session_id': session_id,
+            'session_start': session_start,
+            'session_end': session_end,
+            'session_duration_ms': session_duration,
+            'total_events': len(events),
+            'search_sessions': search_sessions,
+            'book_interactions': list(book_interactions.values()),
+            'event_timeline': event_timeline[-20:]  # 最近20个事件
+        }
+    
+    def _get_event_summary(self, event: Dict[str, Any]) -> str:
+        """生成事件的简短摘要"""
+        event_type = event.get('event_type', 'unknown')
+        
+        if event_type == 'search_session_start':
+            return f"开始搜索: {event.get('query', 'N/A')}"
+        elif event_type == 'search_session_end':
+            duration = event.get('duration_ms', 0)
+            return f"结束搜索, 耗时: {duration}ms, 点击书籍: {event.get('books_clicked_count', 0)}本"
+        elif event_type == 'book_clicked':
+            return f"点击书籍: {event.get('book_title', 'N/A')}"
+        elif event_type == 'book_hover_start':
+            return f"悬停书籍: {event.get('book_title', 'N/A')}"
+        elif event_type == 'book_hover_end':
+            duration = event.get('hover_duration_ms', 0)
+            return f"离开书籍: {event.get('book_title', 'N/A')}, 停留: {duration}ms"
+        elif event_type == 'heartbeat':
+            return "心跳事件"
+        else:
+            return event_type
+    
     def list_files_by_type(self, file_type: Optional[str] = None) -> List[Path]:
         """根据类型列出文件"""
         if file_type == 'search':
