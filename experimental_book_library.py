@@ -11,6 +11,9 @@ BOOK_LIBRARY = {
             "author": "赵慧著",
             "isbn": "9787511569684",
             "match_stars": 3,
+            "role_type": "A",  # 正确高相关
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.92},
@@ -26,6 +29,9 @@ BOOK_LIBRARY = {
             "author": "李骏翼",
             "isbn": "9787500174943",
             "match_stars": 2,
+            "role_type": "B",  # 表面相关但有误：商业化包装/样例偏营销
+            "fault_type": "commercialization",
+            "trap_focus": "案例包装感强，证据链薄弱，适用性被夸大",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.78},
@@ -41,6 +47,9 @@ BOOK_LIBRARY = {
             "author": "潘巧明",
             "isbn": "9787301339381",
             "match_stars": 1,
+            "role_type": "C",  # 逻辑跳跃：从工具到教育效果的直接推断
+            "fault_type": "goal_jump",
+            "trap_focus": "从AI功能直接推导教育变革成效，缺少因果论证",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.68},
@@ -58,6 +67,9 @@ BOOK_LIBRARY = {
             "author": "郭晓明",
             "isbn": "9787511569684",
             "match_stars": 2,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.84},
@@ -73,6 +85,9 @@ BOOK_LIBRARY = {
             "author": "吴志军",
             "isbn": "9787569715507",
             "match_stars": 2,
+            "role_type": "B",  # 领域局限：工业设计特定领域外推全局
+            "fault_type": "domain_limitation",
+            "trap_focus": "以工业设计个案外推到整体教育变革，边界不清",
             "social_reason": {
                 "departments": [
                     {"name": "设计学院", "rate": 0.91},
@@ -88,6 +103,9 @@ BOOK_LIBRARY = {
             "author": "杰夫沙尔",
             "isbn": "9787559868848",
             "match_stars": 1,
+            "role_type": "C",  # 逻辑跳跃：从媒体素养直接跳到广泛教育变革
+            "fault_type": "goal_jump",
+            "trap_focus": "以媒体素养提升直接推演系统层面变革，缺少中介环节",
             "social_reason": {
                 "departments": [
                     {"name": "数字媒体学院", "rate": 0.76},
@@ -105,6 +123,9 @@ BOOK_LIBRARY = {
             "author": "王立辉",
             "isbn": "9787515838960",
             "match_stars": 1,
+            "role_type": "C",  # 目标导向跳跃：宏大命题到实践路径缺证
+            "fault_type": "goal_jump",
+            "trap_focus": "从宏观愿景到落地方案之间论证不足",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.88},
@@ -120,6 +141,9 @@ BOOK_LIBRARY = {
             "author": "李福华",
             "isbn": "9787030799159",
             "match_stars": 3,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.95},
@@ -135,6 +159,9 @@ BOOK_LIBRARY = {
             "author": "中国人民大学出版社",
             "isbn": "9787300305899",
             "match_stars": 1,
+            "role_type": "B",  # 层次错配：入门材料外推高阶研究
+            "fault_type": "layer_mismatch",
+            "trap_focus": "以入门级图形化编程材料支撑高阶AI教育论断",
             "social_reason": {
                 "departments": [
                     {"name": "教育学院", "rate": 0.72},
