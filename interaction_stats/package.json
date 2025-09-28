@@ -1,0 +1,71 @@
+{
+  "name": "jnu-library-interaction-analyzer",
+  "version": "1.0.0",
+  "description": "江南大学图书馆OPAC系统用户交互数据可视化分析工具",
+  "main": "standalone-app.tsx",
+  "scripts": {
+    "start": "npm run serve",
+    "serve": "python -m http.server 8081",
+    "gen:sessions": "node scripts/generate-session-list.js",
+    "build": "npm run gen:sessions && npm run build:ts && npm run build:bundle",
+    "build:ts": "tsc --noEmit",
+    "build:bundle": "esbuild standalone-app.tsx --bundle --outfile=standalone-app.js --format=esm --target=es2020 --jsx=automatic",
+    "dev": "npm run build:bundle && npm run serve",
+    "analyze": "npm run build && npm run serve",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "echo \"暂无测试\" && exit 0"
+  },
+  "keywords": [
+    "library",
+    "analytics",
+    "visualization",
+    "react",
+    "typescript",
+    "user-behavior",
+    "interaction-analysis"
+  ],
+  "author": "JNU Library Analytics Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.8.0",
+    "lucide-react": "^0.263.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "typescript": "^5.1.6",
+    "esbuild": "^0.19.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jnu/library-ai"
+  },
+  "bugs": {
+    "url": "https://github.com/jnu/library-ai/issues"
+  },
+  "homepage": "https://github.com/jnu/library-ai#readme"
+}

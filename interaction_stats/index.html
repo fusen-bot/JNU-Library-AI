@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>江南大学图书馆交互数据分析面板</title>
+    <meta name="description" content="江南大学图书馆OPAC系统用户行为交互数据可视化分析工具">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定义样式 */
+        .recharts-wrapper {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        /* 文件上传区域样式 */
+        .file-upload-area {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .file-upload-area:hover {
+            background-color: #f8fafc;
+            border-color: #3b82f6;
+        }
+        
+        /* 图表容器样式 */
+        .chart-container {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* 表格样式优化 */
+        .data-table {
+            font-size: 0.875rem;
+        }
+        
+        .data-table th {
+            background-color: #f9fafb;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .data-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        /* 状态卡片样式 */
+        .stat-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            transition: box-shadow 0.2s ease-in-out;
+        }
+        
+        .stat-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 加载动画 */
+        .loading-spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 响应式图表高度 */
+        @media (max-width: 768px) {
+            .recharts-wrapper {
+                height: 250px !important;
+            }
+        }
+        
+        /* 时间线事件样式 */
+        .timeline-event {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .timeline-event:hover {
+            background-color: #f3f4f6;
+            transform: translateX(4px);
+        }
+        
+        /* 会话卡片样式 */
+        .session-card {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .session-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* 滚动条样式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <!-- React 应用将在这里渲染 -->
+        <div class="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">正在加载分析面板...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 应用脚本将通过构建工具生成 -->
+    <script type="module" src="./standalone-app.js"></script>
+    
+    <noscript>
+        <div style="text-align: center; padding: 2rem; color: #6b7280;">
+            <p>此应用需要 JavaScript 支持，请启用 JavaScript 后重试。</p>
+        </div>
+    </noscript>
+</body>
+</html>
