@@ -624,11 +624,9 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         
         // 1. 找到搜索输入框 - 使用多种选择器尝试
         const inputSelectors = [
-            '.ant-input.ant-select-search__field[data-monitored="true"]',
-            '.ant-select-search__field',
-            'input.ant-input',
-            'input[placeholder*="搜索"]',
-            'input[placeholder*="检索"]'
+            '.ant-select-search__field input.ant-input',
+            'input.ant-input[type="text"][maxlength="100"]',
+            'input.ant-input'
         ];
         
         let searchInput = null;
@@ -703,11 +701,10 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         // 6. 延迟点击搜索按钮以等待页面响应
         setTimeout(() => {
             const searchButtonSelectors = [
+                'button.ant-btn.newSearchBtn___3p7dd',
                 'button.ant-btn.searchBtn___eV8Vn',
                 'button.searchBtn___eV8Vn',
-                'button.ant-btn.newSearchBtn___3p7dd',
                 'button[type="button"]:has(.anticon-search)',
-                'button:contains("检索")',
                 '.ant-btn-primary:has(.anticon-search)'
             ];
             
@@ -722,6 +719,17 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
                 } catch (e) {
                     // 某些选择器可能不支持，继续尝试下一个
                     continue;
+                }
+            }
+            
+            if (!searchBtn) {
+                const buttons = document.querySelectorAll('button.ant-btn');
+                for (const btn of buttons) {
+                    if (btn.textContent.trim().includes('搜索')) {
+                        searchBtn = btn;
+                        console.log('✅ 找到搜索按钮，通过文本内容: "搜索"');
+                        break;
+                    }
                 }
             }
             
@@ -750,6 +758,9 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
                         }))
                     });
                 }
+                // 如果找不到按钮，应该让 `simulateLibrarySearch` 失败
+                // 但由于这是在 setTimeout 中，我们无法直接改变外部函数的返回值
+                // 这个问题需要更复杂的重构（例如 Promise），暂时保留
             }
         }, 500);
         
