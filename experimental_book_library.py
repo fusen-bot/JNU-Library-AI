@@ -178,15 +178,22 @@ BOOK_LIBRARY = {
     
 }
 
+import jieba
+
 def find_books_by_task(query: str) -> list:
     """
     根据用户查询在实验书库中模糊匹配任务，并返回对应的书籍列表。
+    使用 jieba 分词进行更灵活的匹配。
     """
-    # 简单的模糊逻辑分析，将查询转换为小写以提高匹配率
-    normalized_query = query.lower()
+    # 将查询转换为小写并分词
+    normalized_query_words = set(jieba.cut(query.lower()))
     
     for task_keyword, books in BOOK_LIBRARY.items():
-        if task_keyword.lower() in normalized_query:
+        # 对任务关键词也进行分词
+        task_keyword_words = set(jieba.cut(task_keyword.lower()))
+        
+        # 如果关键词的所有分词都在查询分词中，则视为匹配
+        if task_keyword_words.issubset(normalized_query_words):
             return books
             
     return [] 
