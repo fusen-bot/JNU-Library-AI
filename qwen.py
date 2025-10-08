@@ -56,7 +56,7 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
     
     try:
         response = dashscope.Generation.call(
-            model="qwen-turbo-latest",
+            model="qwen-turbo-2025-07-15",
             api_key="sk-0cc8e5c849604b5c9704113abc77be7d",
             messages=messages,
             stream=False,  # 使用非流式调用简化处理

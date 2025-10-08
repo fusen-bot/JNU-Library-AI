@@ -483,7 +483,7 @@ def start_browser():
         logger.info("Chrome浏览器初始化成功")
         
         logger.info("正在访问目标网页...")
-        driver.get("https://opac.jiangnan.edu.cn/#/Home")
+        driver.get("https://opac.jiangnan.edu.cn/#/searchList")
         
         logger.info("浏览器已启动，等待用户登录...")
         time.sleep(3)  # 给React应用足够的加载时间

@@ -818,7 +818,7 @@ function jumpToBookSearch(bookTitle, bookISBN) {
             });
         }
         // 最后的备用方案：直接跳转到首页
-        window.open('https://opac.jiangnan.edu.cn/#/Home', '_blank');
+        window.open('https://opac.jiangnan.edu.cn/#/searchList', '_blank');
     }
 }
 

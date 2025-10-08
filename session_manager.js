@@ -31,19 +31,35 @@
          * 初始化Session管理器
          */
         init() {
-            this.generateSessionId();
+            const isNewSession = this.restoreOrGenerateSessionId();
             this.setupEventListeners();
             this.setupHeartbeat();
-            this.logSessionStart();
+
+            // 只有在新会话创建时，才记录 session_start 事件
+            if (isNewSession) {
+                this.logSessionStart();
+            }
             
             console.log(`🎯 Session Manager初始化完成，Session ID: ${this.sessionId}`);
         }
         
         /**
-         * 生成全局唯一的Session ID
-         * 格式：交互 XX_YYYYMMDD
+         * 恢复或生成新的Session ID
+         * @returns {boolean} - 如果是新生成的Session，返回true，否则返回false
          */
-        generateSessionId() {
+        restoreOrGenerateSessionId() {
+            // 尝试从sessionStorage恢复
+            const existingSessionId = sessionStorage.getItem('jnu_library_session_id');
+            const existingSessionStart = sessionStorage.getItem('jnu_library_session_start');
+
+            if (existingSessionId && existingSessionStart) {
+                this.sessionId = existingSessionId;
+                this.sessionStartTime = existingSessionStart;
+                console.log(`🎯 恢复已有 Session: ${this.sessionId}`);
+                return false; // 不是新会话
+            }
+
+            // 如果没有，则生成新的Session ID
             const today = new Date();
             const dateStr = today.getFullYear().toString() +
                            (today.getMonth() + 1).toString().padStart(2, '0') +
@@ -69,6 +85,7 @@
             sessionStorage.setItem('jnu_library_session_start', this.sessionStartTime);
 
             console.log(`🎯 生成新的Session ID: ${this.sessionId} (今日第${sessionCounter}个Session)`);
+            return true; // 是新会话
         }
         
         /**
