@@ -317,10 +317,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     debounceTimer = setTimeout(() => {
                         const value = e.target.value;
                         if (value.length > 3) {
-                            // 开始搜索会话记录
-                            if (window.startSearchSession) {
-                                window.startSearchSession(value);
-                            }
+                            // 注释掉自动开始搜索会话记录 - 改为手动控制
+                            // if (window.startSearchSession) {
+                            //     window.startSearchSession(value);
+                            // }
                             
                             // 请求新的书籍推荐API
                             fetch('http://localhost:5001/api/books_with_reasons', {
@@ -678,10 +678,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (inputValue.length < 2) {
             if (displayArea) hideDisplayArea(displayArea);
             stopTaskPolling();
-            // 结束当前搜索会话
-            if (window.endSearchSession) {
-                window.endSearchSession('input_too_short');
-            }
+            // 注释掉自动结束搜索会话 - 改为手动控制
+            // if (window.endSearchSession) {
+            //     window.endSearchSession('input_too_short');
+            // }
             return;
         }
         

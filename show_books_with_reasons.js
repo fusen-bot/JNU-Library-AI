@@ -344,10 +344,10 @@ function addInteractionHandlers(container, books) {
             try {
                 searchBookInLibrary(book.title, book.author, book.isbn);
                 
-                // 结束当前搜索会话
-                if (window.endSearchSession) {
-                    window.endSearchSession('book_clicked');
-                }
+                // 注释掉自动结束搜索会话 - 改为手动控制
+                // if (window.endSearchSession) {
+                //     window.endSearchSession('book_clicked');
+                // }
                 
                 // 隐藏推荐面板
                 setTimeout(() => {

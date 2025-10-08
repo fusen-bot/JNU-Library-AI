@@ -32,7 +32,7 @@ class StatsManager:
         使用JSON Lines格式，一个Session一个文件，事件追加写入
 
         Args:
-            session_id: 会话ID（格式：交互 XX_YYYYMMDD）
+            session_id: 会话ID（格式：被试_001 或 交互 XX_YYYYMMDD）
             event: 事件数据字典
 
         Returns:
@@ -40,6 +40,7 @@ class StatsManager:
         """
         try:
             # 将Session ID转换为文件名格式（替换空格为下划线，保持中文字符）
+            # 例如：被试_001 -> 被试_001.jsonl
             # 例如：交互 01_20250905 -> 交互_01_20250905.jsonl
             filename = session_id.replace(' ', '_') + '.jsonl'
             session_file = self.session_dir / filename
