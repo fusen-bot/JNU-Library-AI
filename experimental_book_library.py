@@ -174,9 +174,236 @@ BOOK_LIBRARY = {
         }     
     ],
     
-#实验组二书籍：
-    
+#实验组二书籍假定乱设的值：
+    "教育变革": [
+        {
+            "title": "教育变革的理念与实践",
+            "author": "刘明",
+            "isbn": "9787301256724",
+            "match_stars": 3,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.83},
+                    {"name": "人文学院", "rate": 0.58},
+                    {"name": "管理学院", "rate": 0.33},
+                    {"name": "社会学院", "rate": 0.29}
+                ],
+                "trend": "系统性探讨教育变革的理论与实施路径，是现代教育改革课程的重要参考文献。"
+            }
+        },
+        {
+            "title": "教育系统重构：政策、技术与创新",
+            "author": "苏伟",
+            "isbn": "9787010194652",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "policy_biased",
+            "trap_focus": "过度依赖政策指引，缺少基层案例分析",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.76},
+                    {"name": "政策与管理学院", "rate": 0.54},
+                    {"name": "公共管理学院", "rate": 0.45},
+                    {"name": "信息学院", "rate": 0.26}
+                ],
+                "trend": "政策导向强烈的教育变革教材，适合教育管理及教育改革方向学习。"
+            }
+        },
+        {
+            "title": "课堂创新与未来学校",
+            "author": "宋远",
+            "isbn": "9787303221560",
+            "match_stars": 1,
+            "role_type": "C",
+            "fault_type": "innovation_jump",
+            "trap_focus": "直接从课堂创新嫁接到制度变革，过程论证不够",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.61},
+                    {"name": "师范学院", "rate": 0.45},
+                    {"name": "人文学院", "rate": 0.33},
+                    {"name": "艺术设计学院", "rate": 0.21}
+                ],
+                "trend": "以课堂微观改革为核心切入未来教育实践，适合创新教学案例探讨。"
+            }
+        }
+    ],
+    "人工智能伦理": [
+        {
+            "title": "人工智能伦理与社会责任",
+            "author": "王强",
+            "isbn": "9787302524747",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "insufficient_argument",
+            "trap_focus": "伦理分析不足以支撑全面社会责任讨论",
+            "social_reason": {
+                "departments": [
+                    {"name": "哲学学院", "rate": 0.81},
+                    {"name": "法学院", "rate": 0.61},
+                    {"name": "计算机科学与工程学院", "rate": 0.44},
+                    {"name": "社会学院", "rate": 0.33}
+                ],
+                "trend": "人工智能伦理在社会各领域中的应用与挑战，强调跨学科视角。"
+            }
+        },
+        {
+            "title": "智能时代的伦理困境",
+            "author": "李睿",
+            "isbn": "9787010212332",
+            "match_stars": 3,
+            "role_type": "A",  # 高相关
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "哲学学院", "rate": 0.85},
+                    {"name": "信息科学技术学院", "rate": 0.48},
+                    {"name": "法学院", "rate": 0.38},
+                    {"name": "社会学院", "rate": 0.29}
+                ],
+                "trend": "深度剖析人工智能在现实社会中引发的伦理议题，强调理论与实践结合。"
+            }
+        },
+        {
+            "title": "AI伦理的法律边界",
+            "author": "张明",
+            "isbn": "9787302498756",
+            "match_stars": 1,
+            "role_type": "C",  # 法律视角局限，伦理宽泛
+            "fault_type": "oversimplification",
+            "trap_focus": "过于强调法律规制，伦理维度阐释不足",
+            "social_reason": {
+                "departments": [
+                    {"name": "法学院", "rate": 0.79},
+                    {"name": "哲学学院", "rate": 0.34},
+                    {"name": "计算机科学与工程学院", "rate": 0.27},
+                    {"name": "社会学院", "rate": 0.19}
+                ],
+                "trend": "法律政策路径主导，适合人工智能合规与伦理监管相关研究。"
+            }
+        }
+    ],
+
+    #实验组三书籍假定乱设的值：
+    "智慧校园": [
+        {
+            "title": "智慧时代的校园管理",
+            "author": "刘明",
+            "isbn": "9787300000001",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "scope_limited",
+            "trap_focus": "仅关注设施智能化，教学应用不足",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育技术学院", "rate": 0.62},
+                    {"name": "信息学院", "rate": 0.44},
+                    {"name": "管理学院", "rate": 0.27},
+                    {"name": "艺术设计学院", "rate": 0.19}
+                ],
+                "trend": "强调智慧空间和物联网建设，数字基础布局讨论较多。"
+            }
+        },
+        {
+            "title": "数字化校园创新案例",
+            "author": "王芳",
+            "isbn": "9787040549999",
+            "match_stars": 3,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "信息学院", "rate": 0.79},
+                    {"name": "教育技术学院", "rate": 0.52},
+                    {"name": "管理学院", "rate": 0.48},
+                    {"name": "艺术设计学院", "rate": 0.26}
+                ],
+                "trend": "收录各地智慧校园落地案例，适合管理与技术融合方向。"
+            }
+        },
+        {
+            "title": "智慧校园未来展望",
+            "author": "陈强",
+            "isbn": "9787100004321",
+            "match_stars": 1,
+            "role_type": "C",
+            "fault_type": "theory_bias",
+            "trap_focus": "以技术预言为主，实际操作性弱",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育技术学院", "rate": 0.36},
+                    {"name": "管理学院", "rate": 0.29},
+                    {"name": "信息学院", "rate": 0.25},
+                    {"name": "艺术设计学院", "rate": 0.11}
+                ],
+                "trend": "聚焦未来趋势预测，适合理论研究参考。"
+            }
+        }
+    ],
+    "教师能力建设": [
+        {
+            "title": "教师素养提升之道",
+            "author": "孙红",
+            "isbn": "9787560987654",
+            "match_stars": 3,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.81},
+                    {"name": "师范学院", "rate": 0.73},
+                    {"name": "继续教育学院", "rate": 0.31},
+                    {"name": "心理学院", "rate": 0.32}
+                ],
+                "trend": "关注教师基本素质与新技术融合能力培养。"
+            }
+        },
+        {
+            "title": "信息时代的教师能力",
+            "author": "李强",
+            "isbn": "9787560123456",
+            "match_stars": 1,
+            "role_type": "C",
+            "fault_type": "goal_jump",
+            "trap_focus": "混合了学生素养讨论，界限模糊",
+            "social_reason": {
+                "departments": [
+                    {"name": "师范学院", "rate": 0.59},
+                    {"name": "教育学院", "rate": 0.23},
+                    {"name": "心理学院", "rate": 0.42},
+                    {"name": "继续教育学院", "rate": 0.17}
+                ],
+                "trend": "对数字素养提及较多，但系统性略有欠缺。"
+            }
+        },
+        {
+            "title": "教师能力结构新解",
+            "author": "王欣",
+            "isbn": "9787560999999",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "oversimplification",
+            "trap_focus": "能力分类粗略，缺少具体发展路径",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.41},
+                    {"name": "师范学院", "rate": 0.69},
+                    {"name": "心理学院", "rate": 0.18},
+                    {"name": "继续教育学院", "rate": 0.34}
+                ],
+                "trend": "探讨教师能力构成，但案例和实践辅证偏少。"
+            }
+        }
+    ]
+
 }
+
 
 import jieba
 #jieba 是什么
