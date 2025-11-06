@@ -1,0 +1,11 @@
+# Output/session data
+sessions/
+!sessions/.gitkeep
+
+interaction_stats/sessions/
+!interaction_stats/sessions/.gitkeep
+
+# Byte-compiled / cache
+__pycache__/
+
+
