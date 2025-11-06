@@ -41,11 +41,7 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
 
 注意：user_query_intent字段必须严格按照"检索'关键词' ➡️ 意图 ➡️ 推荐类型"的格式，简洁明了。"""
 
-    # 备用的原始格式提示词
-    backup_system_prompt = """你是江南大学图书馆的资深图书推荐专家...
-"user_query_intent": "对用户检索意图的分析",
-"""
-
+  
     # 新版用户提示词
     user_prompt = f'用户检索词是："{user_query}"。请为书籍《{book_title}》（作者：{book_author}）生成推荐理由。'
     
