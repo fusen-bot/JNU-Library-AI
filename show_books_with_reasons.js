@@ -266,11 +266,11 @@ function createDetailContentHTML(book) {
 
     return `
         <div style="display: flex; gap: 15px;">
-            <div style="flex: 1;">
-                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px;">推荐依据</h4>
-                <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>你的检索意图:</strong> ${userIntent}</p>
-                <p style="margin: 0 0 6px 0; font-size: 11px;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
-                <p style="margin: 0; font-size: 11px;"><strong>应用领域匹配:</strong> ${appFields}</p>
+            <div style="flex: 1; text-align: left;">
+                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px; text-align:center;">推荐依据</h4>
+                <p style="margin: 0 0 6px 0; font-size: 11px; text-align: left;"><strong>你的检索意图:</strong> ${userIntent}</p>
+                <p style="margin: 0 0 6px 0; font-size: 11px; text-align: left;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
+                <p style="margin: 0; font-size: 11px; text-align: left;"><strong>应用领域匹配:</strong> ${appFields}</p>
             </div>
             <div style="flex: 1;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
