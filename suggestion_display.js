@@ -317,7 +317,66 @@ function showSuggestion(suggestion) {
     window.__isBookClickTriggered = false;
     window.__bookClickTimeout = null;
     
+    // 🔧 添加请求去重机制：记录最近的请求和匹配结果
+    window.__lastRequestCache = {
+        query_normalized: '',
+        books_signature: '',
+        timestamp: 0,
+        task_id: ''
+    };
+    
     console.log('🚀 初始化输入监控系统 - 集成新版推荐理由UI');
+    
+    // ================================
+    // 辅助函数：去重逻辑
+    // ================================
+    
+    /**
+     * 规范化查询字符串，用于去重判断
+     * - 去除首尾空格
+     * - 转换为小写
+     * - 去除特殊标点符号（保留中文和英文字符）
+     */
+    function normalizeQuery(query) {
+        // 去除首尾空格并转小写
+        let normalized = query.trim().toLowerCase();
+        // 去除特殊标点符号，只保留中文、英文、数字和空格
+        normalized = normalized.replace(/[^\w\s\u4e00-\u9fff]/g, '');
+        // 压缩多个空格为一个
+        normalized = normalized.replace(/\s+/g, ' ');
+        return normalized;
+    }
+    
+    /**
+     * 生成书籍列表的唯一签名，用于判断匹配结果是否相同
+     * 基于书籍的ISBN列表（有序）
+     */
+    function getBooksSignature(books) {
+        if (!books || books.length === 0) {
+            return 'empty';
+        }
+        const isbnList = books.map(book => book.isbn || '').sort();
+        return isbnList.join(',');
+    }
+    
+    /**
+     * 检查是否为重复请求
+     * @param {string} inputValue - 用户输入的查询
+     * @returns {boolean} - 如果是重复请求返回true
+     */
+    function isDuplicateRequest(inputValue) {
+        const normalized = normalizeQuery(inputValue);
+        const currentTime = Date.now();
+        const timeDiff = currentTime - window.__lastRequestCache.timestamp;
+        
+        // 如果10秒内有相同的规范化查询，则视为重复
+        if (timeDiff < 10000 && window.__lastRequestCache.query_normalized === normalized) {
+            console.log(`⚠️ 检测到重复请求（${(timeDiff/1000).toFixed(2)}秒内）: ${normalized}`);
+            return true;
+        }
+        
+        return false;
+    }
     
     // ================================
     // 监控和显示逻辑
@@ -464,7 +523,7 @@ function showSuggestion(suggestion) {
         
         pollingInterval = setInterval(() => {
             pollTaskStatus(taskId);
-        }, 500);
+        }, 250);  // 从500ms改为250ms，更实时
     }
     
     function stopTaskPolling() {
@@ -488,10 +547,20 @@ function showSuggestion(suggestion) {
             const taskData = await response.json();
             console.log(`📊 任务 ${taskId} 状态:`, taskData.status, '-', taskData.progress);
             
-            if (taskData.status === 'completed') {
-                console.log('🎉 任务完成，更新UI');
+            // 🔧 新增：处理processing状态的渐进式更新
+            if (taskData.status === 'processing' && taskData.completed_books) {
+                console.log(`🔄 渐进式更新: ${taskData.completed_books.length}/${taskData.total_books} 本书已完成`);
+                updateBooksProgressively(taskData.completed_books);
+            } else if (taskData.status === 'completed') {
+                console.log('✅ 任务完成，所有书籍推荐理由生成成功');
                 stopTaskPolling();
                 updateDisplayWithCompletedReasons(taskData);
+            } else if (taskData.status === 'partial_failure') {
+                console.warn('⚠️ 任务部分失败:', taskData.failed_books);
+                console.warn('警告信息:', taskData.warning);
+                stopTaskPolling();
+                updateDisplayWithCompletedReasons(taskData);
+                showPartialFailureWarning(taskData.failed_books);
             } else if (taskData.status === 'error') {
                 console.error('❌ 任务失败:', taskData.error);
                 stopTaskPolling();
@@ -501,6 +570,77 @@ function showSuggestion(suggestion) {
             console.error('轮询请求失败:', error);
             stopTaskPolling();
         }
+    }
+    
+    function updateBooksProgressively(completedBooks) {
+        const displayArea = document.getElementById('suggestion-display');
+        if (!displayArea) return;
+        
+        // 获取当前显示的书籍元素
+        const bookItems = displayArea.querySelectorAll('.book-item');
+        
+        // 为每本已完成的书籍更新UI
+        completedBooks.forEach((book, index) => {
+            if (index < bookItems.length) {
+                const bookItem = bookItems[index];
+                
+                // 移除加载指示器
+                const loadingIndicator = bookItem.querySelector('.loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+                
+                // 移除加载文本
+                const loadingText = bookItem.querySelector('div[style*="font-size: 9px"]');
+                if (loadingText) {
+                    loadingText.remove();
+                }
+                
+                // 添加完成指示器
+                if (!bookItem.querySelector('.completed-indicator')) {
+                    const completedIndicator = document.createElement('div');
+                    completedIndicator.className = 'completed-indicator';
+                    completedIndicator.style.cssText = `
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        width: 12px;
+                        height: 12px;
+                        background: #28a745;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-size: 8px;
+                    `;
+                    completedIndicator.innerHTML = '✓';
+                    bookItem.appendChild(completedIndicator);
+                }
+                
+                // 更新样式，表示可以交互
+                bookItem.style.borderColor = '#05a081';
+                bookItem.style.backgroundColor = '#f8f9fa';
+                bookItem.style.cursor = 'pointer';
+                
+                // 🔧 关键：更新书籍的悬停数据，使其可以立即展开查看
+                // 将完成的书籍数据存储到元素的data属性中
+                bookItem.dataset.bookData = JSON.stringify(book);
+            }
+        });
+        
+        // 🔧 关键修改：有一本书完成后就添加交互handler和提示信息
+        if (completedBooks.length > 0 && typeof addInteractionHandlers === 'function') {
+            // 重新添加交互handlers（只对已完成的书生效）
+            addInteractionHandlers(displayArea, completedBooks);
+            
+            // 显示提示信息（只显示一次）
+            if (!displayArea.querySelector('.completion-message')) {
+                showCompletionMessage(displayArea);
+            }
+        }
+        
+        console.log(`✅ 已更新 ${completedBooks.length} 本书的显示状态`);
     }
     
     function updateDisplayWithCompletedReasons(taskData) {
@@ -550,6 +690,7 @@ function showSuggestion(suggestion) {
     
     function showCompletionMessage(displayArea) {
         const completionMsg = document.createElement('div');
+        completionMsg.className = 'completion-message';  // 添加class以便识别
         completionMsg.style.cssText = `
             background: #d4edda;
             color: #155724;
@@ -589,8 +730,53 @@ function showSuggestion(suggestion) {
         errorMsg.textContent = `❌ 推荐理由生成失败: ${error}`;
         displayArea.appendChild(errorMsg);
     }
+    
+    function showPartialFailureWarning(failedBooks) {
+        const displayArea = document.getElementById('suggestion-display');
+        if (!displayArea) return;
+        
+        const warningMsg = document.createElement('div');
+        warningMsg.style.cssText = `
+            background: #fff3cd;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 10px;
+            border: 1px solid #ffeaa7;
+            text-align: center;
+        `;
+        
+        if (failedBooks && failedBooks.length > 0) {
+            warningMsg.textContent = `⚠️ ${failedBooks.length}本书生成推荐理由失败（${failedBooks.join('、')}），已显示默认信息`;
+        } else {
+            warningMsg.textContent = `⚠️ 部分书籍生成推荐理由失败，已显示默认信息`;
+        }
+        
+        displayArea.appendChild(warningMsg);
+        
+        // 5秒后自动隐藏警告
+        setTimeout(() => {
+            if (warningMsg.parentNode) {
+                warningMsg.remove();
+            }
+        }, 5000);
+    }
 
     async function sendToServer(inputValue, retryCount = 0) {
+        // 🔧 检查是否为重复请求
+        if (isDuplicateRequest(inputValue)) {
+            console.log('🔄 跳过重复请求，使用缓存的任务ID:', window.__lastRequestCache.task_id);
+            // 如果有缓存的任务ID且任务仍在进行中，继续使用该任务
+            if (window.__lastRequestCache.task_id && currentPollingTaskId === window.__lastRequestCache.task_id) {
+                console.log('✅ 当前正在轮询缓存的任务，无需重新请求');
+                return;
+            }
+            // 如果缓存的任务已完成或不存在，也跳过请求
+            console.log('✅ 使用缓存结果，跳过API请求');
+            return;
+        }
+        
         window.__suggestionsInFlight = true;
         if (window.__loadingTimer) clearTimeout(window.__loadingTimer);
         stopTaskPolling();
@@ -620,6 +806,24 @@ function showSuggestion(suggestion) {
             
             const data = await response.json();
             console.log('🔍 服务器响应（异步API）:', data);
+            
+            // 🔧 更新请求缓存
+            if (data.status === 'success' && data.books && data.books.length > 0) {
+                const normalized = normalizeQuery(inputValue);
+                const booksSignature = getBooksSignature(data.books);
+                window.__lastRequestCache = {
+                    query_normalized: normalized,
+                    books_signature: booksSignature,
+                    timestamp: Date.now(),
+                    task_id: data.task_id
+                };
+                console.log('📝 更新前端请求缓存:', normalized, '-> 任务ID:', data.task_id);
+                
+                // 如果是从后端缓存返回的结果，记录日志
+                if (data.from_cache) {
+                    console.log('🔄 后端返回缓存结果，任务ID:', data.task_id);
+                }
+            }
             
             window.__suggestionsInFlight = false;
             clearTimeout(window.__loadingTimer);
@@ -661,6 +865,13 @@ function showSuggestion(suggestion) {
         if (inputValue.length === 0) {
             if (displayArea) hideDisplayArea(displayArea);
             stopTaskPolling();
+            // 清空缓存
+            window.__lastRequestCache = {
+                query_normalized: '',
+                books_signature: '',
+                timestamp: 0,
+                task_id: ''
+            };
             return;
         }
 
@@ -680,7 +891,18 @@ function showSuggestion(suggestion) {
             return; // 忽略这次输入，避免循环触发
         }
         
-        // 输入≥2个字符：显示加载动画并请求API
+        // 🔧 关键修改：在显示加载动画之前先检查重复请求
+        if (isDuplicateRequest(inputValue)) {
+            console.log('🔄 检测到重复请求，保持当前显示不变');
+            // 如果缓存任务已完成但没有轮询，尝试重新启动轮询
+            if (!currentPollingTaskId && window.__lastRequestCache.task_id) {
+                console.log('🔄 重新启动缓存任务的轮询');
+                startTaskPolling(window.__lastRequestCache.task_id);
+            }
+            return; // 直接返回，不改变UI
+        }
+        
+        // 输入≥2个字符且非重复：显示加载动画并请求API
         displayArea = displayArea || createDisplayArea();
         if (displayArea) {
             showLoadingAnimation(displayArea);

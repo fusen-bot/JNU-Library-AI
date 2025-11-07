@@ -24,6 +24,8 @@ from experimental_book_library import find_books_by_task
 async_tasks = {}
 # 线程池执行器，用于处理异步LLM调用
 executor = ThreadPoolExecutor(max_workers=3)
+# 请求去重缓存：存储最近的请求和匹配结果
+request_cache = {}  # 格式: {query_normalized: {'books_matched': [...], 'task_id': ..., 'timestamp': ...}}
 
 def cleanup_old_tasks():
     """
@@ -39,6 +41,16 @@ def cleanup_old_tasks():
     for task_id in tasks_to_remove:
         del async_tasks[task_id]
         logger.info(f"清理过期任务: {task_id}")
+    
+    # 同时清理超过10秒的请求缓存
+    cache_to_remove = []
+    for query, cache_data in request_cache.items():
+        if current_time - cache_data.get('timestamp', 0) > 10:  # 10秒
+            cache_to_remove.append(query)
+    
+    for query in cache_to_remove:
+        del request_cache[query]
+        logger.debug(f"清理过期请求缓存: {query}")
 
 # 定期清理任务
 def start_cleanup_timer():
@@ -64,7 +76,7 @@ if API_BACKEND == "spark":
     logger_name = "星火API"
 elif API_BACKEND == "qwen":
     from qwen import get_qwen_suggestion as get_suggestion
-    from qwen import get_qwen_books_with_reasons as get_books_with_reasons
+    from qwen import get_qwen_books_with_reasons_progressive as get_books_with_reasons
     logger_name = "千问API"
 elif API_BACKEND == "openai":
     from openai import get_openai_suggestion as get_suggestion
@@ -123,24 +135,82 @@ last_request_time = 0
 # 异步理由生成函数
 # ===========================================
 
+def normalize_query(query: str) -> str:
+    """
+    规范化查询字符串，用于去重判断
+    - 去除首尾空格
+    - 转换为小写
+    - 去除特殊标点符号（保留中文和英文字符）
+    """
+    import re
+    # 去除首尾空格并转小写
+    normalized = query.strip().lower()
+    # 去除特殊标点符号，只保留中文、英文、数字和空格
+    normalized = re.sub(r'[^\w\s\u4e00-\u9fff]', '', normalized)
+    # 压缩多个空格为一个
+    normalized = re.sub(r'\s+', ' ', normalized)
+    return normalized
+
+def get_matched_books_signature(books: list) -> str:
+    """
+    生成书籍列表的唯一签名，用于判断匹配结果是否相同
+    基于书籍的ISBN列表（有序）
+    """
+    if not books:
+        return "empty"
+    isbn_list = sorted([book.get('isbn', '') for book in books])
+    return ','.join(isbn_list)
+
 def generate_reasons_async(task_id, matched_books, user_query):
     """
     异步生成推荐理由的函数，在后台线程中运行
+    支持渐进式更新：每完成一本书就立即存储
     """
     try:
         logger.info(f"任务 {task_id}: 开始异步生成推荐理由")
-        # 更新任务状态为处理中
+        
+        # 初始化任务状态
         async_tasks[task_id]['status'] = 'processing'
         async_tasks[task_id]['progress'] = '正在生成推荐理由...'
+        async_tasks[task_id]['completed_books'] = []  # 已完成的书籍列表
+        async_tasks[task_id]['books_status'] = {}  # 每本书的状态
+        async_tasks[task_id]['total_books'] = len(matched_books)
         
-        # 调用原有的并行LLM生成理由函数
-        response_data = get_books_with_reasons(matched_books, user_query)
+        # 为每本书初始化状态
+        for book in matched_books:
+            isbn = book.get('isbn', '')
+            async_tasks[task_id]['books_status'][isbn] = {
+                'status': 'pending',
+                'title': book.get('title', '未知书籍')
+            }
+        
+        # 调用渐进式并行LLM生成理由函数
+        response_data = get_books_with_reasons(matched_books, user_query, task_id, async_tasks)
+        
+        # 检查是否有失败的书籍（返回默认值的书籍）
+        failed_books = []
+        for book in response_data.get('books', []):
+            logical_reason = book.get('logical_reason', {})
+            intent = logical_reason.get('user_query_intent', '')
+            core_concepts = logical_reason.get('book_core_concepts', [])
+            
+            # 检测默认错误值的特征
+            if '出错' in intent or '无法生成' in str(core_concepts):
+                failed_books.append(book.get('title', '未知'))
+        
+        # 根据失败情况设置任务状态
+        if failed_books:
+            logger.error(f"任务 {task_id}: {len(failed_books)}本书生成失败: {failed_books}")
+            async_tasks[task_id]['status'] = 'partial_failure'
+            async_tasks[task_id]['failed_books'] = failed_books
+            async_tasks[task_id]['progress'] = f'推荐理由生成完成（{len(failed_books)}本失败）'
+        else:
+            async_tasks[task_id]['status'] = 'completed'
+            async_tasks[task_id]['progress'] = '推荐理由生成完成'
+            logger.info(f"任务 {task_id}: ✅ 所有书籍推荐理由生成成功")
         
         # 将结果存储到任务中
-        async_tasks[task_id]['status'] = 'completed'
         async_tasks[task_id]['result'] = response_data
-        async_tasks[task_id]['progress'] = '推荐理由生成完成'
-        logger.info(f"任务 {task_id}: 推荐理由生成完成")
         
     except Exception as e:
         logger.error(f"任务 {task_id}: 生成推荐理由时发生错误: {str(e)}")
@@ -152,7 +222,7 @@ def generate_reasons_async(task_id, matched_books, user_query):
 def get_books_with_reasons_api():
     """
     新的API端点：立即返回基本书籍信息，异步生成推荐理由
-    第三阶段：快速响应 + 后台异步处理
+    第三阶段：快速响应 + 后台异步处理 + 去重优化
     """
     try:
         data = request.json
@@ -165,14 +235,71 @@ def get_books_with_reasons_api():
                 "error": "查询内容不能为空且至少包含2个字符"
             }), 400
         
-        # 第一步：从本地实验书库匹配书籍（快速）
+        # 第一步：规范化查询，用于去重判断
+        query_normalized = normalize_query(user_query)
+        logger.debug(f"规范化查询: {query_normalized}")
+        
+        # 第二步：从本地实验书库匹配书籍（快速0延迟最好是）
         logger.info(f"在本地书库中搜索匹配: {user_query}")
         matched_books = find_books_by_task(user_query)
         
         if matched_books:
             logger.info(f"本地书库匹配成功，找到 {len(matched_books)} 本书")
             
-            # 生成唯一任务ID
+            # 第三步：生成书籍签名，用于判断是否与缓存匹配
+            books_signature = get_matched_books_signature(matched_books)
+            
+            # 第四步：检查缓存，判断是否为重复请求
+            current_time = time.time()
+            if query_normalized in request_cache:
+                cached_data = request_cache[query_normalized]
+                time_diff = current_time - cached_data.get('timestamp', 0)
+                cached_signature = cached_data.get('books_signature', '')
+                
+                # 如果10秒内有相同的查询，且匹配的书籍列表一致，则返回缓存的任务ID
+                if time_diff < 10 and cached_signature == books_signature:
+                    cached_task_id = cached_data.get('task_id')
+                    
+                    # 检查缓存任务的当前状态
+                    if cached_task_id in async_tasks:
+                        task_status = async_tasks[cached_task_id].get('status', 'unknown')
+                        task_progress = async_tasks[cached_task_id].get('progress', '')
+                        logger.info(f"🔄 检测到重复请求（{time_diff:.2f}秒内）")
+                        logger.info(f"📊 缓存任务状态: {task_status} - {task_progress}")
+                        logger.info(f"📋 查询规范化: {query_normalized}")
+                        logger.info(f"📚 书籍签名: {books_signature}")
+                    else:
+                        logger.warning(f"⚠️ 缓存任务{cached_task_id}不存在于async_tasks中，可能已被清理")
+                    
+                    logger.info(f"🔄 返回缓存任务ID: {cached_task_id}")
+                    
+                    # 构建基本书籍信息
+                    basic_books = []
+                    for i, book in enumerate(matched_books):
+                        basic_book = {
+                            "title": book.get('title', f'未知书籍{i+1}'),
+                            "author": book.get('author', '未知作者'),
+                            "isbn": book.get('isbn', f'978711100000{i+1}'),
+                            "cover_url": f"https://example.com/cover{i+1}.jpg",
+                            "match_stars": book.get('match_stars', 0),
+                            "reasons_loading": True
+                        }
+                        basic_books.append(basic_book)
+                    
+                    # 返回缓存的任务ID，不启动新的异步任务
+                    response = {
+                        "status": "success",
+                        "user_query": user_query,
+                        "books": basic_books,
+                        "task_id": cached_task_id,
+                        "reasons_loading": True,
+                        "from_cache": True,
+                        "message": "检测到重复请求，使用缓存结果"
+                    }
+                    
+                    return jsonify(response)
+            
+            # 第五步：非重复请求，生成新的任务ID
             task_id = str(uuid.uuid4())
             
             # 构建基本书籍信息（立即返回）
@@ -197,6 +324,14 @@ def get_books_with_reasons_api():
                 'created_at': time.time()
             }
             
+            # 更新缓存
+            request_cache[query_normalized] = {
+                'books_signature': books_signature,
+                'task_id': task_id,
+                'timestamp': current_time
+            }
+            logger.info(f"📝 更新请求缓存: {query_normalized} -> {task_id}")
+            
             # 在后台异步启动LLM理由生成
             logger.info(f"启动异步任务 {task_id} 生成推荐理由")
             executor.submit(generate_reasons_async, task_id, matched_books, user_query)
@@ -208,6 +343,7 @@ def get_books_with_reasons_api():
                 "books": basic_books,
                 "task_id": task_id,
                 "reasons_loading": True,
+                "from_cache": False,
                 "message": "书籍基本信息已加载，推荐理由正在后台生成中..."
             }
             
@@ -231,6 +367,7 @@ def get_books_with_reasons_api():
 def get_task_status(task_id):
     """
     新的API端点：获取异步任务的状态和结果
+    支持渐进式返回：processing状态下也返回已完成的书籍
     """
     try:
         if task_id not in async_tasks:
@@ -247,10 +384,16 @@ def get_task_status(task_id):
             "progress": task['progress']
         }
         
-        if task['status'] == 'completed' and 'result' in task:
-            # 任务完成，返回完整的推荐理由
+        # 🔧 关键修改：processing状态也返回已完成的书籍
+        if task['status'] == 'processing':
+            response['completed_books'] = task.get('completed_books', [])
+            response['books_status'] = task.get('books_status', {})
+            response['total_books'] = task.get('total_books', 0)
+            response['reasons_loading'] = True
+            
+        elif task['status'] == 'completed' and 'result' in task:
+            # 任务完全成功，返回完整的推荐理由
             result_data = task['result']
-            # 确保任务状态不被结果数据覆盖
             response['status'] = 'completed'  # 保持任务完成状态
             response['user_query'] = result_data.get('user_query', '')
             response['books'] = result_data.get('books', [])
@@ -258,6 +401,17 @@ def get_task_status(task_id):
             
             # 可选：清理已完成的任务（避免内存泄漏）
             # del async_tasks[task_id]
+            
+        elif task['status'] == 'partial_failure' and 'result' in task:
+            # 任务部分失败，仍返回结果但标记失败的书籍
+            result_data = task['result']
+            response['status'] = 'partial_failure'
+            response['user_query'] = result_data.get('user_query', '')
+            response['books'] = result_data.get('books', [])
+            response['failed_books'] = task.get('failed_books', [])
+            response['reasons_loading'] = False
+            response['warning'] = f"{len(task.get('failed_books', []))}本书生成推荐理由失败"
+            logger.warning(f"任务 {task_id} 部分失败: {response['warning']}")
             
         elif task['status'] == 'error':
             response['error'] = task.get('error', '未知错误')

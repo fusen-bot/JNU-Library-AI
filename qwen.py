@@ -3,6 +3,7 @@ import dashscope
 import logging
 import json
 import concurrent.futures
+import time
 
 # 配置日志
 logging.basicConfig(
@@ -15,13 +16,19 @@ logger = logging.getLogger(__name__)
 # 第二阶段重构：为单本书生成推荐理由
 # ===========================================
 
-def get_reason_for_single_book(book: dict, user_query: str) -> dict:
+def get_reason_for_single_book(book: dict, user_query: str, max_retries: int = 5, timeout: int = 20) -> dict:
     """
     调用千问API，为单本书生成推荐理由。
     使用新的、轻量级的、解耦的提示词。
+    添加智能重试机制：最多5次重试，总超时20秒。
     """
     book_title = book.get('title', '未知书籍')
     book_author = book.get('author', '未知作者')
+    
+    # 重试等待时间配置：递增延迟，首次快速重试，后续逐渐增加，而且如果收到返回值后立刻暂停重试以及后续的内容传递，就只传递除初次返回的
+    # 0.5秒 → 1秒 → 1.5秒 → 2秒 → 2.5秒，总计7.5秒
+    retry_delays = [0.5, 1, 1.5, 2, 2.5]
+    start_time = time.time()
     
     logger.info(f"为书籍《{book_title}》生成推荐理由 (用户查询: {user_query})")
 
@@ -40,7 +47,6 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
 }
 
 注意：user_query_intent字段必须严格按照"检索'关键词' ➡️ 意图 ➡️ 推荐类型"的格式，简洁明了。"""
-
   
     # 新版用户提示词
     user_prompt = f'用户检索词是："{user_query}"。请为书籍《{book_title}》（作者：{book_author}）生成推荐理由。'
@@ -50,41 +56,87 @@ def get_reason_for_single_book(book: dict, user_query: str) -> dict:
         {"role": "user", "content": user_prompt}
     ]
     
-    try:
-        response = dashscope.Generation.call(
-            model="qwen-turbo-2025-07-15",
-            api_key="sk-0cc8e5c849604b5c9704113abc77be7d",
-            messages=messages,
-            stream=False,  # 使用非流式调用简化处理
-            result_format='message',
-            top_p=0.8,
-            temperature=0.3,  # 降低温度，让输出更稳定
-            enable_search=False
-        )
+    # 开始重试循环
+    for attempt in range(max_retries + 1):
+        # 检查总超时时间
+        elapsed_time = time.time() - start_time
+        if elapsed_time > timeout:
+            logger.error(f"为《{book_title}》生成理由超时（{timeout}秒），已尝试{attempt}次")
+            break
         
-        if response.status_code == HTTPStatus.OK:
-            raw_content = response.output.choices[0].message.content
+        # 如果不是第一次尝试，等待后重试
+        if attempt > 0:
+            wait_time = retry_delays[attempt - 1] if attempt <= len(retry_delays) else retry_delays[-1]
+            logger.warning(f"为《{book_title}》重试第{attempt}次，等待{wait_time}秒...")
+            time.sleep(wait_time)
+        
+        try:
+            logger.debug(f"为《{book_title}》发起API调用（尝试 {attempt + 1}/{max_retries + 1}）")
             
-            # 清理和解析JSON
-            # 尝试提取JSON部分
-            if '```json' in raw_content:
-                json_start = raw_content.find('```json') + 7
-                json_end = raw_content.find('```', json_start)
-                content = raw_content[json_start:json_end].strip()
-            else:
-                content = raw_content.strip()
+            response = dashscope.Generation.call(
+                model="qwen-turbo-2025-07-15",
+                api_key="sk-0cc8e5c849604b5c9704113abc77be7d",
+                messages=messages,
+                stream=False,  # 使用非流式调用简化处理
+                result_format='message',
+                top_p=0.8,
+                temperature=0.3,  # 降低温度，让输出更稳定
+                enable_search=False
+            )
+            
+            if response.status_code == HTTPStatus.OK:
+                raw_content = response.output.choices[0].message.content
+                
+                # 清理和解析JSON
+                # 尝试提取JSON部分
+                if '```json' in raw_content:
+                    json_start = raw_content.find('```json') + 7
+                    json_end = raw_content.find('```', json_start)
+                    content = raw_content[json_start:json_end].strip()
+                else:
+                    content = raw_content.strip()
 
-            reason_data = json.loads(content)
-            logger.info(f"成功为《{book_title}》生成并解析推荐理由")
-            return reason_data
-            
-        else:
-            logger.error(f"为《{book_title}》生成理由时API请求失败: {response.status_code}")
-            return create_default_reasons(user_query, book_title)
-            
-    except Exception as e:
-        logger.error(f"为《{book_title}》生成理由时发生错误: {str(e)}")
-        return create_default_reasons(user_query, book_title)
+                reason_data = json.loads(content)
+                logger.info(f"✅ 成功为《{book_title}》生成并解析推荐理由（尝试{attempt + 1}次）")
+                return reason_data
+                
+            elif response.status_code == 429:
+                # 429限流错误，可以重试
+                logger.warning(f"⚠️ 《{book_title}》遇到429限流错误（尝试{attempt + 1}次）")
+                if attempt < max_retries:
+                    continue  # 继续重试
+                else:
+                    logger.error(f"❌ 《{book_title}》达到最大重试次数，429错误未解决")
+                    break
+            else:
+                # 其他HTTP错误，不重试
+                logger.error(f"❌ 《{book_title}》API请求失败: {response.status_code}, request_id={response.request_id}")
+                logger.error(f"错误详情: code={response.code}, message={response.message}")
+                break
+                
+        except json.JSONDecodeError as e:
+            # JSON解析失败，可以重试
+            logger.error(f"⚠️ 《{book_title}》JSON解析失败（尝试{attempt + 1}次）: {str(e)}")
+            if 'content' in locals():
+                logger.error(f"原始返回内容: {content[:200]}...")  # 只记录前200字符
+            if attempt < max_retries:
+                continue  # 继续重试
+            else:
+                logger.error(f"❌ 《{book_title}》达到最大重试次数，JSON解析仍失败")
+                break
+                
+        except Exception as e:
+            # 其他异常，可以重试
+            logger.error(f"⚠️ 《{book_title}》发生异常（尝试{attempt + 1}次）: {type(e).__name__} - {str(e)}")
+            if attempt < max_retries:
+                continue  # 继续重试
+            else:
+                logger.error(f"❌ 《{book_title}》达到最大重试次数，仍有异常")
+                break
+    
+    # 所有重试都失败，返回默认值
+    logger.error(f"❌ 《{book_title}》所有重试失败，返回默认错误值")
+    return create_default_reasons(user_query, book_title)
 
 # ===========================================
 # 重构旧函数，改为并行调用
@@ -145,6 +197,92 @@ def get_qwen_books_with_reasons(books: list, user_query: str) -> dict:
                 final_books.append(book_with_reason)
 
     logger.info(f"已完成所有书籍的推荐理由生成")
+    return {
+        "status": "success",
+        "user_query": user_query,
+        "books": final_books
+    }
+
+def get_qwen_books_with_reasons_progressive(books: list, user_query: str, task_id: str, async_tasks: dict) -> dict:
+    """
+    调用千问API，为多本书并行生成推荐理由。
+    支持渐进式更新：每完成一本书就通过回调更新任务状态
+    """
+    logger.info(f"开始为 {len(books)} 本书并行生成推荐理由（渐进式）")
+    
+    final_books = []
+    
+    # 使用线程池并行处理API请求
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(books), 3)) as executor:
+        # 为每本书提交一个任务
+        future_to_book = {executor.submit(get_reason_for_single_book, book, user_query): book for book in books}
+        
+        for future in concurrent.futures.as_completed(future_to_book):
+            book = future_to_book[future]
+            isbn = book.get('isbn', '')
+            
+            try:
+                # 获取AI生成的推荐理由
+                reason_data = future.result()
+                
+                # 组合书籍信息和推荐理由
+                book_with_reason = book.copy() # 复制基础信息
+                book_with_reason.update(reason_data) # 添加理由
+                book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg" # 模拟封面
+                # 确保星级数据被保留
+                if 'match_stars' not in book_with_reason:
+                    book_with_reason["match_stars"] = book.get('match_stars', 0)
+                
+                # 优先使用书籍数据中的自定义借阅热度
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
+                final_books.append(book_with_reason)
+                
+                # 🔧 关键：实时更新任务状态
+                if task_id and task_id in async_tasks:
+                    async_tasks[task_id]['completed_books'].append(book_with_reason)
+                    async_tasks[task_id]['books_status'][isbn] = {
+                        'status': 'completed',
+                        'title': book.get('title', '未知书籍')
+                    }
+                    completed_count = len(async_tasks[task_id]['completed_books'])
+                    total_count = async_tasks[task_id]['total_books']
+                    async_tasks[task_id]['progress'] = f'正在生成推荐理由... ({completed_count}/{total_count})'
+                    logger.info(f"✅ 任务 {task_id}: 《{book.get('title')}》完成 ({completed_count}/{total_count})")
+                
+            except Exception as exc:
+                logger.error(f"处理书籍《{book.get('title')}》时产生异常: {exc}")
+                # 即使单个请求失败，也添加带有默认理由的书籍，保证返回数量
+                book_with_reason = book.copy()
+                book_with_reason.update(create_default_reasons(user_query, book.get('title')))
+                book_with_reason["cover_url"] = f"https://example.com/cover{len(final_books)+1}.jpg"
+                # 确保星级数据被保留
+                if 'match_stars' not in book_with_reason:
+                    book_with_reason["match_stars"] = book.get('match_stars', 0)
+                
+                # 必须使用书籍数据中的自定义借阅热度，如果没有则使用默认值
+                if 'social_reason' in book and book['social_reason']:
+                    book_with_reason["social_reason"] = book['social_reason']
+                else:
+                    book_with_reason["social_reason"] = create_default_social_reason()
+                
+                final_books.append(book_with_reason)
+                
+                # 更新失败的书籍状态
+                if task_id and task_id in async_tasks:
+                    async_tasks[task_id]['completed_books'].append(book_with_reason)
+                    async_tasks[task_id]['books_status'][isbn] = {
+                        'status': 'failed',
+                        'title': book.get('title', '未知书籍')
+                    }
+                    completed_count = len(async_tasks[task_id]['completed_books'])
+                    total_count = async_tasks[task_id]['total_books']
+                    async_tasks[task_id]['progress'] = f'正在生成推荐理由... ({completed_count}/{total_count})'
+
+    logger.info(f"已完成所有书籍的推荐理由生成（渐进式）")
     return {
         "status": "success",
         "user_query": user_query,
