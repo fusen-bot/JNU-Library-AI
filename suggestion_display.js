@@ -301,96 +301,7 @@ function showSuggestion(suggestion) {
 
 }
 
-// 连接到输入事件，当用户输入时发送到Python服务器
-document.addEventListener('DOMContentLoaded', function() {
-    // 为所有输入框添加事件监听
-    const addListeners = () => {
-        const inputs = document.querySelectorAll('input, textarea');
-        inputs.forEach(input => {
-            if (!input.hasAttribute('data-suggestion-attached')) {
-                input.setAttribute('data-suggestion-attached', 'true');
-                
-                // 添加输入事件防抖处理
-                let debounceTimer;
-                input.addEventListener('input', function(e) {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        const value = e.target.value;
-                        if (value.length > 3) {
-                            // 注释掉自动开始搜索会话记录 - 改为手动控制
-                            // if (window.startSearchSession) {
-                            //     window.startSearchSession(value);
-                            // }
-                            
-                            // 请求新的书籍推荐API
-                            fetch('http://localhost:5001/api/books_with_reasons', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    query: value,
-                                    session_id: window.JNULibrarySessionManager ? window.JNULibrarySessionManager.getSessionId() : null
-                                })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log("🔍 新API返回的完整数据:", data); // 改进日志
-                                console.log("📋 数据契约验证:");
-                                console.log("  - status:", data.status);
-                                console.log("  - user_query:", data.user_query);
-                                console.log("  - books数量:", data.books ? data.books.length : 0);
-                                
-                                                                 if (data.status === 'success' && data.books && data.books.length > 0) {
-                                     // ✨ 使用新版推荐理由UI组件
-                                     if (typeof showBooksWithReasons === 'function') {
-                                         showBooksWithReasons(data);
-                                     } else {
-                                         // 备用：旧版显示方式
-                                         let displayText = "书籍：";
-                                         data.books.forEach((book, index) => {
-                                             displayText += `《${book.title}》`;
-                                             if (index < data.books.length - 1) displayText += "，";
-                                         });
-                                         displayText += "\n问题：相关推荐理由展示？学术影响力如何？";
-                                         showSuggestion(displayText);
-                                     }
-                                     
-                                     // 详细打印每本书的推荐理由
-                                     data.books.forEach((book, index) => {
-                                         console.log(`📚 书籍${index + 1}: ${book.title}`);
-                                         console.log("  📖 作者:", book.author);
-                                         console.log("  🧠 推荐依据:", book.logical_reason);
-                                         console.log("  👥 借阅热度:", book.social_reason);
-                                         console.log("  ---");
-                                     });
-                                 } else {
-                                     console.warn("⚠️ API返回数据格式异常:", data);
-                                 }
-                            })
-                            .catch(err => console.error('❌ 获取书籍推荐失败:', err));
-                        }
-                    }, 500); // 500ms的防抖延迟
-                });
-            }
-        });
-    };
-    
-    // 初始添加监听器
-    addListeners();
-    
-    // 监听DOM变化，为新添加的输入元素添加监听器
-    const observer = new MutationObserver(mutations => {
-        addListeners();
-    });
-    
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    
-    console.log('建议显示脚本已加载');
-});
+
 
 (function() {
     // 保证脚本只初始化一次的标志
@@ -774,7 +685,7 @@ document.addEventListener('DOMContentLoaded', function() {
         subtree: true
     });
     
-    setInterval(setupMonitor, 2000);
+    // setInterval(setupMonitor, 2000);
 
     setupMonitor();
     
