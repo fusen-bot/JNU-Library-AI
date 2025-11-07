@@ -709,71 +709,30 @@ function simulateLibrarySearch(bookTitle, bookAuthor) {
         
         console.log('📤 已触发React兼容的输入事件');
         
-        // 6. 延迟点击搜索按钮以等待页面响应
+        // 6. 在Home页直接触发Enter键，复用已有的稳定检索逻辑
         setTimeout(() => {
-            const searchButtonSelectors = [
-                'button.ant-btn.newSearchBtn___3p7dd',
-                'button.ant-btn.searchBtn___eV8Vn',
-                'button.searchBtn___eV8Vn',
-                'button[type="button"]:has(.anticon-search)',
-                '.ant-btn-primary:has(.anticon-search)'
-            ];
+            // 模拟Enter键按下事件
+            const enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+            });
             
-            let searchBtn = null;
-            for (const selector of searchButtonSelectors) {
-                try {
-                    searchBtn = document.querySelector(selector);
-                    if (searchBtn) {
-                        console.log(`✅ 找到搜索按钮，使用选择器: ${selector}`);
-                        break;
-                    }
-                } catch (e) {
-                    // 某些选择器可能不支持，继续尝试下一个
-                    continue;
-                }
-            }
+            searchInput.dispatchEvent(enterEvent);
+            console.log('✅ 已触发Enter键事件，使用稳定的检索逻辑');
             
-            if (!searchBtn) {
-                const buttons = document.querySelectorAll('button.ant-btn');
-                for (const btn of buttons) {
-                    if (btn.textContent.trim().includes('搜索')) {
-                        searchBtn = btn;
-                        console.log('✅ 找到搜索按钮，通过文本内容: "搜索"');
-                        break;
-                    }
-                }
+            // 记录Enter键触发
+            if (window.__testSearchEvents) {
+                window.__testSearchEvents.push({
+                    timestamp: new Date().toISOString(),
+                    action: 'enter_key_triggered',
+                    success: true
+                });
             }
-            
-            if (searchBtn) {
-                console.log('🔍 模拟点击搜索按钮');
-                searchBtn.click();
-                
-                // 记录搜索按钮点击
-                if (window.__testSearchEvents) {
-                    window.__testSearchEvents.push({
-                        timestamp: new Date().toISOString(),
-                        action: 'search_button_clicked',
-                        success: true
-                    });
-                }
-            } else {
-                console.warn('❌ 未找到搜索按钮');
-                if (window.__testSearchEvents) {
-                    window.__testSearchEvents.push({
-                        timestamp: new Date().toISOString(),
-                        action: 'search_button_not_found',
-                        availableButtons: Array.from(document.querySelectorAll('button')).map(btn => ({
-                            className: btn.className,
-                            textContent: btn.textContent.trim(),
-                            type: btn.type
-                        }))
-                    });
-                }
-                // 如果找不到按钮，应该让 `simulateLibrarySearch` 失败
-                // 但由于这是在 setTimeout 中，我们无法直接改变外部函数的返回值
-                // 这个问题需要更复杂的重构（例如 Promise），暂时保留
-            }
-        }, 500);
+        }, 100);
         
         return true;
         
