@@ -34,6 +34,14 @@ function showBooksWithReasons(apiData) {
 }
 
 function createBooksReasonContainer(container, books) {
+    // 为容器（displayArea）附加书籍数据，以便其他脚本访问
+    try {
+        container.dataset.booksData = JSON.stringify(books);
+    } catch (e) {
+        console.error("无法序列化书籍数据:", e);
+        container.dataset.booksData = '[]';
+    }
+
     // 1. 创建一个统一的书籍列表容器
     const booksList = document.createElement('div');
     booksList.className = 'books-container';
@@ -410,11 +418,13 @@ function addInteractionHandlers(container, books) {
                     }
                     i.style.transform = 'translateY(0)';
                     i.style.boxShadow = 'none';
+                    i.classList.remove('active-suggestion'); // 移除其他项的高亮
                 }
             });
             this.style.borderColor = '#05a081';
             this.style.transform = 'translateY(-2px)';
             this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            this.classList.add('active-suggestion'); // 添加高亮
         });
     });
 
@@ -439,6 +449,7 @@ function addInteractionHandlers(container, books) {
             }
             item.style.transform = 'translateY(0)';
             item.style.boxShadow = 'none';
+            item.classList.remove('active-suggestion'); // 同时移除高亮
         });
     };
 

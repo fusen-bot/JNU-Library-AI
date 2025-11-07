@@ -709,6 +709,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 300);
             });
 
+            // --- 🚀 新增: 添加Enter键监听器 ---
+            inputElement.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // 阻止默认的回车提交行为
+                    
+                    const displayArea = document.getElementById('suggestion-display');
+                    
+                    // 检查推荐面板是否可见
+                    if (displayArea && displayArea.style.opacity === '1') {
+                        const activeBookItem = displayArea.querySelector('.book-item.active-suggestion');
+                        
+                        if (activeBookItem) {
+                            console.log('🎯 Enter键触发，搜索高亮书籍');
+                            const booksDataStr = displayArea.dataset.booksData;
+                            const bookIndex = parseInt(activeBookItem.dataset.bookIndex, 10);
+                            
+                            if (booksDataStr && !isNaN(bookIndex)) {
+                                try {
+                                    const books = JSON.parse(booksDataStr);
+                                    const bookToSearch = books[bookIndex];
+                                    
+                                    if (bookToSearch && typeof window.searchBookInLibrary === 'function') {
+                                        window.searchBookInLibrary(bookToSearch.title, bookToSearch.author, bookToSearch.isbn);
+                                        // 搜索后隐藏推荐
+                                        hideDisplayArea(displayArea);
+                                    }
+                                } catch (e) {
+                                    console.error("解析书籍数据或搜索时出错:", e);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            // --- 🚀 监听器添加完毕 ---
+
             createDisplayArea();
 
             document.addEventListener('click', function(event) {

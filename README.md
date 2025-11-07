@@ -12,6 +12,7 @@
 ├── suggestion_display.js      # 旧版UI组件（用于测试页面）
 ├── requirements.txt           # Python依赖
 ├── start_services.sh          # 启动脚本
+├── stop_services.sh           # 停止脚本
 ├── README.md                  # 本文档
 └── tests/
 这个项目实现本地监听网页输入行为并提供智能反馈提示关键词。
@@ -46,16 +47,40 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-1. 启动本地监控服务：
+### 启动服务
+
+1. 使用启动脚本（推荐）：
 
 ```bash
-python spark.py
+chmod +x start_services.sh
+./start_services.sh
+```
+
+或者手动启动：
+
+```bash
 python web_monitor.py
 ```
 
 2. 服务将自动启动Chrome浏览器并打开配置的网页(默认为http://localhost:3000)
 
 3. 当你在网页中输入内容时，系统会自动分析输入并提供建议
+
+### 停止服务
+
+使用停止脚本：
+
+```bash
+chmod +x stop_services.sh
+./stop_services.sh
+```
+
+或者使用 `Ctrl+C` 在运行服务的终端中停止。
+
+### 端口配置
+
+- **Flask API 服务端口**: `5001` (在 `web_monitor.py` 第508行配置)
+- 如需修改端口，请编辑 `web_monitor.py` 文件中的端口设置
 
 ## 🎯 效果展示
 

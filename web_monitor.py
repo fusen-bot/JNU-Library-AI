@@ -562,8 +562,8 @@ if __name__ == "__main__":
                 
             except Exception as e:
                 logger.error(f"监控循环出错 (可能浏览器已关闭): {e}")
-                logger.info("将在5秒后尝试重启浏览器...")
-                time.sleep(5)
+                logger.info("将在10秒后尝试重启浏览器...")
+                time.sleep(10)
                 try:
                     driver.quit()
                 except Exception as quit_e:
