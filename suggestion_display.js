@@ -372,6 +372,81 @@ function showSuggestion(suggestion) {
     }
     
     // ===========================================
+    // iOS风格加载动画
+    // ===========================================
+    
+    // 显示优雅的加载动画
+    function showLoadingAnimation(container) {
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // 创建加载动画容器 - 紧凑高度，与书籍展示一致
+        const loadingContainer = document.createElement('div');
+        loadingContainer.className = 'suggestion-loading';
+        loadingContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 20px;
+            min-height: 60px;
+            gap: 12px;
+        `;
+        
+        // 创建三个脉动点
+        const dotsContainer = document.createElement('div');
+        dotsContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('div');
+            dot.style.cssText = `
+                width: 8px;
+                height: 8px;
+                background: #05a081;
+                border-radius: 50%;
+                animation: pulse 1.4s ease-in-out ${i * 0.2}s infinite;
+            `;
+            dotsContainer.appendChild(dot);
+        }
+        
+        // 加载文本
+        const loadingText = document.createElement('div');
+        loadingText.style.cssText = `
+            font-size: 13px;
+            color: #666;
+            font-weight: 400;
+        `;
+        loadingText.textContent = '正在为你推荐';
+        
+        loadingContainer.appendChild(dotsContainer);
+        loadingContainer.appendChild(loadingText);
+        container.appendChild(loadingContainer);
+        
+        // 确保动画CSS已注入
+        if (!document.getElementById('loading-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'loading-animation-style';
+            style.textContent = `
+                @keyframes pulse {
+                    0%, 100% {
+                        transform: scale(0.8);
+                        opacity: 0.5;
+                    }
+                    50% {
+                        transform: scale(1.2);
+                        opacity: 1;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    // ===========================================
     // 异步任务轮询管理
     // ===========================================
     let currentPollingTaskId = null;
@@ -557,11 +632,9 @@ function showSuggestion(suggestion) {
                     startTaskPolling(data.task_id);
                 }
             } else {
-                const displayArea = document.getElementById('suggestion-display');
-                if (displayArea) {
-                    showErrorMessage(displayArea, data.error || data.message || '暂无推荐结果');
-                    showDisplayArea(displayArea);
-                }
+                // 没有匹配结果时，保持加载动画，不显示错误信息
+                // 让用户继续输入，直到有结果为止
+                console.log('📝 暂无匹配结果，保持加载状态等待用户继续输入');
             }
         } catch (error) {
             console.error('请求失败:', error);
@@ -572,11 +645,9 @@ function showSuggestion(suggestion) {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
                 return sendToServer(inputValue, retryCount + 1);
             } else {
-                const displayArea = document.getElementById('suggestion-display');
-                if (displayArea) {
-                    showErrorMessage(displayArea, '多次尝试后无法连接到推荐服务。');
-                    showDisplayArea(displayArea);
-                }
+                // 网络错误且重试次数用尽时，也保持加载状态
+                // 让用户继续输入，系统会自动重新请求
+                console.log('⚠️ 请求失败但保持加载状态，等待用户继续输入');
                 stopTaskPolling();
             }
         }
@@ -584,15 +655,22 @@ function showSuggestion(suggestion) {
     
     function handleInput(event) {
         const inputValue = event.target.value.trim();
-        const displayArea = document.getElementById('suggestion-display');
+        let displayArea = document.getElementById('suggestion-display');
 
-        if (inputValue.length < 2) {
+        // 输入为空时隐藏
+        if (inputValue.length === 0) {
             if (displayArea) hideDisplayArea(displayArea);
             stopTaskPolling();
-            // 注释掉自动结束搜索会话 - 改为手动控制
-            // if (window.endSearchSession) {
-            //     window.endSearchSession('input_too_short');
-            // }
+            return;
+        }
+
+        // 输入第1个字符：显示加载动画但不请求
+        if (inputValue.length === 1) {
+            displayArea = displayArea || createDisplayArea();
+            if (displayArea) {
+                showLoadingAnimation(displayArea);
+                showDisplayArea(displayArea);
+            }
             return;
         }
         
@@ -600,6 +678,13 @@ function showSuggestion(suggestion) {
         if (window.__isBookClickTriggered) {
             console.log('⚠️ 忽略书籍点击触发的输入变化:', inputValue);
             return; // 忽略这次输入，避免循环触发
+        }
+        
+        // 输入≥2个字符：显示加载动画并请求API
+        displayArea = displayArea || createDisplayArea();
+        if (displayArea) {
+            showLoadingAnimation(displayArea);
+            showDisplayArea(displayArea);
         }
         
         console.log('捕获到输入:', inputValue);
@@ -617,7 +702,7 @@ function showSuggestion(suggestion) {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     handleInput(event);
-                }, 300);
+                }, 150); // 从300ms降低到150ms，提升响应速度
             });
 
             // --- 🚀 新增: 添加Enter键监听器 ---
@@ -691,11 +776,3 @@ function showSuggestion(suggestion) {
     
     console.log('监听脚本加载完成，等待输入框出现');
 })();
-
-function showErrorMessage(container, message) {
-    // 清除加载动画
-    
-    
-    container.innerHTML = '';
-}
-
