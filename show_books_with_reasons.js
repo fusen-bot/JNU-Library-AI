@@ -250,7 +250,7 @@ function createDetailContentHTML(book) {
         const percentage = Math.round(dept.rate * 100);
         const barWidth = dept.rate * 100;
         departmentsHTML += `
-            <div style="margin: 4px 0; font-size: 10px;">
+            <div style="margin: 4px 0; font-size: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">${dept.name}</span>
                     <span style="font-weight: bold; color: #7b68ee;">${percentage}%</span>
@@ -275,15 +275,15 @@ function createDetailContentHTML(book) {
     return `
         <div style="display: flex; gap: 15px;">
             <div style="flex: 1; text-align: left;">
-                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 13px; text-align:center;">推荐依据</h4>
-                <p style="margin: 0 0 6px 0; font-size: 11px; text-align: left;"><strong>你的检索意图:</strong> ${userIntent}</p>
-                <p style="margin: 0 0 6px 0; font-size: 11px; text-align: left;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
-                <p style="margin: 0; font-size: 11px; text-align: left;"><strong>应用领域匹配:</strong> ${appFields}</p>
+                <h4 style="margin: 0 0 8px 0; color: #4a90e2; font-size: 15px; text-align:center;">推荐依据</h4>
+                <p style="margin: 0 0 6px 0; font-size: 13px; text-align: left;"><strong>你的检索意图:</strong> ${userIntent}</p>
+                <p style="margin: 0 0 6px 0; font-size: 13px; text-align: left;"><strong>本书核心概念:</strong> ${coreConcepts}</p>
+                <p style="margin: 0; font-size: 13px; text-align: left;"><strong>应用领域匹配:</strong> ${appFields}</p>
             </div>
             <div style="flex: 1;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
-                    <h4 style="margin: 0; color: #7b68ee; font-size: 13px;">借阅热度</h4>
-                    <div style="font-size: 12px; color: #333;"><strong>📊 各学院借阅率</strong></div>
+                    <h4 style="margin: 0; color: #7b68ee; font-size: 15px;">借阅热度</h4>
+                    <div style="font-size: 14px; color: #333;"><strong>📊 各学院借阅率</strong></div>
                 </div>
                 ${departmentsHTML}
             </div>
