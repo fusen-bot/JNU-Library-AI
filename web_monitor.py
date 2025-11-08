@@ -460,7 +460,7 @@ def handle_interaction_events():
                     continue
                 
                 # 添加服务器接收时间戳
-                event['server_received_timestamp'] = datetime.now().isoformat()
+                event['server_received_timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
                 
                 # 保存事件到文件系统
                 saved_file = stats_manager.save_session_event(session_id, event)

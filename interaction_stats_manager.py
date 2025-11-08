@@ -48,7 +48,7 @@ class StatsManager:
             # 添加事件记录时间
             event_with_metadata = {
                 **event,
-                'saved_timestamp': datetime.now().isoformat(),
+                'saved_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                 'session_id': session_id
             }
 

@@ -33,7 +33,8 @@
         init() {
             const isNewSession = this.restoreOrGenerateSessionId();
             this.setupEventListeners();
-            this.setupHeartbeat();
+            // this.setupHeartbeat(); // Paused to reduce noise
+            this.setupTimestampDisplay(); // Add real-time timestamp display
 
             // 只有在新会话创建时，才记录 session_start 事件
             if (isNewSession) {
@@ -43,6 +44,22 @@
             console.log(`🎯 Session Manager初始化完成，Session ID: ${this.sessionId}`);
         }
         
+        /**
+         * 格式化日期对象为 'YYYY-MM-DD HH:MM:SS.ms'
+         * @param {Date} date - 日期对象
+         * @returns {string} 格式化的时间戳字符串
+         */
+        getFormattedTimestamp(date) {
+            const Y = date.getFullYear();
+            const M = (date.getMonth() + 1).toString().padStart(2, '0');
+            const D = date.getDate().toString().padStart(2, '0');
+            const h = date.getHours().toString().padStart(2, '0');
+            const m = date.getMinutes().toString().padStart(2, '0');
+            const s = date.getSeconds().toString().padStart(2, '0');
+            const ms = date.getMilliseconds().toString().padStart(3, '0');
+            return `${Y}-${M}-${D} ${h}:${m}:${s}.${ms}`;
+        }
+
         /**
          * 恢复或生成新的Session ID
          * @returns {boolean} - 如果是新生成的Session，返回true，否则返回false
@@ -61,7 +78,7 @@
 
             // 如果没有，则生成新的全局连续被试ID
             this.sessionId = this.generateGlobalParticipantId();
-            this.sessionStartTime = new Date().toISOString();
+            this.sessionStartTime = this.getFormattedTimestamp(new Date());
 
             // 存储到sessionStorage中，以便页面刷新后恢复
             sessionStorage.setItem('jnu_library_session_id', this.sessionId);
@@ -111,7 +128,7 @@
             const event = {
                 session_id: this.sessionId,
                 event_type: eventType,
-                timestamp: new Date().toISOString(),
+                timestamp: this.getFormattedTimestamp(new Date()),
                 timestamp_since_session_start: Date.now() - new Date(this.sessionStartTime).getTime(),
                 ...eventData
             };
@@ -142,7 +159,7 @@
             this.currentSearchSession = {
                 search_id: `search_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                 query: query,
-                start_time: new Date().toISOString(),
+                start_time: this.getFormattedTimestamp(new Date()),
                 start_timestamp: Date.now(),
                 books_clicked: [],
                 events: []
@@ -210,7 +227,7 @@
             
             // 生成新的全局连续被试ID
             this.sessionId = this.generateGlobalParticipantId();
-            this.sessionStartTime = new Date().toISOString();
+            this.sessionStartTime = this.getFormattedTimestamp(new Date());
             
             // 存储被试信息
             this.participantName = participantName;
@@ -226,7 +243,7 @@
                 search_id: `experiment_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                 participant_name: participantName,
                 experiment_description: experimentDescription,
-                start_time: new Date().toISOString(),
+                start_time: this.getFormattedTimestamp(new Date()),
                 start_timestamp: Date.now(),
                 books_clicked: [],
                 events: [],
@@ -258,7 +275,7 @@
                 search_id: `manual_search_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                 query: query,
                 description: description,
-                start_time: new Date().toISOString(),
+                start_time: this.getFormattedTimestamp(new Date()),
                 start_timestamp: Date.now(),
                 books_clicked: [],
                 events: [],
@@ -267,12 +284,13 @@
             
             console.log(`🎯 手动开始搜索会话: ${description || query}`, this.currentSearchSession);
             
-            this.recordEvent('manual_search_session_start', {
-                search_id: this.currentSearchSession.search_id,
-                query: query,
-                description: description,
-                query_length: query.length
-            });
+            // Paused to reduce noise and redundancy
+            // this.recordEvent('manual_search_session_start', {
+            //     search_id: this.currentSearchSession.search_id,
+            //     query: query,
+            //     description: description,
+            //     query_length: query.length
+            // });
         }
         
         /**
@@ -318,16 +336,17 @@
             
             console.log(`🏁 手动结束搜索会话: ${this.currentSearchSession.description || this.currentSearchSession.query}，原因: ${reason}，耗时: ${duration}ms`);
             
-            this.recordEvent('manual_search_session_end', {
-                search_id: this.currentSearchSession.search_id,
-                query: this.currentSearchSession.query,
-                description: this.currentSearchSession.description,
-                duration_ms: duration,
-                end_reason: reason,
-                books_clicked_count: this.currentSearchSession.books_clicked.length,
-                books_clicked: this.currentSearchSession.books_clicked,
-                events_count: this.currentSearchSession.events.length
-            }, true);
+            // Paused to reduce noise and redundancy
+            // this.recordEvent('manual_search_session_end', {
+            //     search_id: this.currentSearchSession.search_id,
+            //     query: this.currentSearchSession.query,
+            //     description: this.currentSearchSession.description,
+            //     duration_ms: duration,
+            //     end_reason: reason,
+            //     books_clicked_count: this.currentSearchSession.books_clicked.length,
+            //     books_clicked: this.currentSearchSession.books_clicked,
+            //     events_count: this.currentSearchSession.events.length
+            // }, true);
             
             this.currentSearchSession = null;
         }
@@ -368,7 +387,7 @@
                 book_title: bookInfo.title,
                 book_author: bookInfo.author,
                 book_isbn: bookInfo.isbn,
-                click_timestamp: new Date().toISOString()
+                click_timestamp: this.getFormattedTimestamp(new Date())
             };
             
             // 如果有当前搜索会话，添加到会话中
@@ -376,7 +395,7 @@
                 this.currentSearchSession.books_clicked.push(clickEvent);
                 this.currentSearchSession.events.push({
                     type: 'book_clicked',
-                    timestamp: new Date().toISOString(),
+                    timestamp: this.getFormattedTimestamp(new Date()),
                     data: clickEvent
                 });
             }
@@ -429,8 +448,8 @@
                     const hoverDuration = Date.now() - interaction.hover_start_time;
                     interaction.total_hover_time += hoverDuration;
                     interaction.hover_sessions.push({
-                        start: new Date(interaction.hover_start_time).toISOString(),
-                        end: new Date().toISOString(),
+                        start: this.getFormattedTimestamp(new Date(interaction.hover_start_time)),
+                        end: this.getFormattedTimestamp(new Date()),
                         duration_ms: hoverDuration
                     });
                     interaction.hover_start_time = null;
@@ -469,7 +488,7 @@
                 interaction.click_count += 1;
             }
             
-            interaction.last_interaction = new Date().toISOString();
+            interaction.last_interaction = this.getFormattedTimestamp(new Date());
         }
         
         /**
@@ -484,12 +503,13 @@
             
             // 页面可见性变化时的处理
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    this.recordEvent('page_hidden');
-                    this.flushPendingEvents();
-                } else {
-                    this.recordEvent('page_visible');
-                }
+                // Paused to reduce noise
+                // if (document.hidden) {
+                //     this.recordEvent('page_hidden');
+                //     this.flushPendingEvents();
+                // } else {
+                //     this.recordEvent('page_visible');
+                // }
             });
         }
         
@@ -497,19 +517,43 @@
          * 设置心跳机制（每30秒发送一次）
          */
         setupHeartbeat() {
-            setInterval(() => {
-                this.recordEvent('heartbeat', {
-                    active_search_session: this.currentSearchSession ? this.currentSearchSession.search_id : null,
-                    pending_events_count: this.pendingEvents.length
-                });
+            // Paused to reduce noise for EEG/eye-tracking analysis.
+            // setInterval(() => {
+            //     this.recordEvent('heartbeat', {
+            //         active_search_session: this.currentSearchSession ? this.currentSearchSession.search_id : null,
+            //         pending_events_count: this.pendingEvents.length
+            //     });
                 
-                // 定期发送待处理事件
-                if (this.pendingEvents.length > 0) {
-                    this.flushPendingEvents();
-                }
-            }, 30000); // 30秒
+            //     // 定期发送待处理事件
+            //     if (this.pendingEvents.length > 0) {
+            //         this.flushPendingEvents();
+            //     }
+            // }, 30000); // 30秒
         }
         
+        /**
+         * 创建并注入一个用于实时显示时间戳的UI元素
+         */
+        setupTimestampDisplay() {
+            const display = document.createElement('div');
+            display.id = 'real-time-timestamp-display';
+            Object.assign(display.style, {
+                position: 'fixed',
+                bottom: '10px',
+                left: '10px', // Changed from right to lef
+                padding: '5px 10px',
+                color: 'rgba(56, 250, 218, 0.7)', // Made text fainter
+                fontFamily: 'monospace',
+                fontSize: '14px',
+                zIndex: '9999',
+            });
+            document.body.appendChild(display);
+
+            setInterval(() => {
+                display.textContent = this.getFormattedTimestamp(new Date());
+            }, 100); // Update every 100ms
+        }
+
         /**
          * 记录Session开始事件
          */
@@ -593,7 +637,7 @@
                     body: JSON.stringify({
                         session_id: this.sessionId,
                         events: events,
-                        timestamp: new Date().toISOString()
+                        timestamp: this.getFormattedTimestamp(new Date())
                     })
                 });
                 
