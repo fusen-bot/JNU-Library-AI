@@ -695,7 +695,26 @@ function showSuggestion(suggestion) {
         showCompletionMessage(displayArea);
     }
     
+    // 记录上次显示提示消息的时间戳
+    let lastCompletionMessageTime = 0;
+    const COMPLETION_MESSAGE_COOLDOWN = 5000; // 5秒冷却时间
+    
     function showCompletionMessage(displayArea) {
+        // 检查是否在冷却时间内
+        const now = Date.now();
+        if (now - lastCompletionMessageTime < COMPLETION_MESSAGE_COOLDOWN) {
+            return; // 在冷却时间内，不显示
+        }
+        
+        // 检查是否已经存在提示消息
+        const existingMsg = displayArea.querySelector('.completion-message');
+        if (existingMsg) {
+            return; // 已经存在，不重复显示
+        }
+        
+        // 更新时间戳
+        lastCompletionMessageTime = now;
+        
         const completionMsg = document.createElement('div');
         completionMsg.className = 'completion-message';  // 添加class以便识别
         completionMsg.style.cssText = `
