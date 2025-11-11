@@ -4,7 +4,7 @@
 # value: 推荐书籍列表，每本书包含 title, author, isbn等信息
 
 BOOK_LIBRARY = {
-#实验组一书籍：
+#旧实验组书籍：
     "未来教育": [
         {
             "title": "未来教育 : 教育改革的未来",
@@ -173,9 +173,69 @@ BOOK_LIBRARY = {
             }
         }     
     ],
-    
-#实验组二书籍假定乱设的值：
-    "教育变革": [
+
+    "AI教育": [
+        {
+            "title": "人工智能+教育 : 人工智能时代, 未来学校教育的机遇、挑战与重塑路径",
+            "author": "王立辉",
+            "isbn": "9787515838960",
+            "match_stars": 1,
+            "role_type": "C",  # 目标导向跳跃：宏大命题到实践路径缺证
+            "fault_type": "goal_jump",
+            "trap_focus": "从宏观愿景到落地方案之间论证不足",
+            #上面这几个字段的作用是什么
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.88},
+                    {"name": "计算机科学与工程学院", "rate": 0.56},
+                    {"name": "人文学院", "rate": 0.43},
+                    {"name": "管理学院", "rate": 0.37}
+                ],
+                "trend": "AI教育整合的全面指南，在教育技术相关研究和智能教育项目中广受参考。"
+            }
+        },
+        {
+            "title": "人工智能教育应用理论与实践",
+            "author": "李福华",
+            "isbn": "9787030799159",
+            "match_stars": 4,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.95},
+                    {"name": "计算机科学与工程学院", "rate": 0.73},
+                    {"name": "数字媒体学院", "rate": 0.62},
+                    {"name": "人文学院", "rate": 0.48}
+                ],
+                "trend": "AI教育应用的权威教材，在智能教育系统开发和教育技术研究中频繁被引用，是相关专业的核心参考书。"
+            }
+        },
+        {   
+            "title": "AI教育基础：图形化编程的拓展应用",
+            "author": "中国人民大学出版社",
+            "isbn": "9787300305899",
+            "match_stars": 1,
+            "role_type": "B",  # 层次错配：入门材料外推高阶研究
+            "fault_type": "layer_mismatch",
+            "trap_focus": "以入门级图形化编程材料支撑高阶AI教育论断",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.72},
+                    {"name": "计算机科学与工程学院", "rate": 0.58},
+                    {"name": "数字媒体学院", "rate": 0.51},
+                    {"name": "设计学院", "rate": 0.34}
+                ],
+                "trend": "AI教育入门实践教材，适合初学者了解AI教育的基础原理和应用方法。"
+            }
+        }     
+    ],
+
+
+
+#实验组二书籍：
+    "----": [
         {
             "title": "教育变革的理念与实践",
             "author": "刘明",
@@ -233,67 +293,67 @@ BOOK_LIBRARY = {
     ],
     "人工智能伦理": [
         {
-            "title": "人工智能伦理与社会责任",
-            "author": "王强",
-            "isbn": "9787302524747",
+            "title": "人工智能伦理困境与突破",
+            "author": "周翔",
+            "isbn": "9787576815535",
             "match_stars": 2,
             "role_type": "B",
             "fault_type": "insufficient_argument",
             "trap_focus": "伦理分析不足以支撑全面社会责任讨论",
             "social_reason": {
                 "departments": [
-                    {"name": "哲学学院", "rate": 0.81},
+                    {"name": "社会学院", "rate": 0.81},
                     {"name": "法学院", "rate": 0.61},
                     {"name": "计算机科学与工程学院", "rate": 0.44},
-                    {"name": "社会学院", "rate": 0.33}
+                    {"name": "教育学院", "rate": 0.33}
                 ],
                 "trend": "人工智能伦理在社会各领域中的应用与挑战，强调跨学科视角。"
             }
         },
         {
-            "title": "智能时代的伦理困境",
-            "author": "李睿",
-            "isbn": "9787010212332",
+            "title": "人工智能传播伦理与治理",
+            "author": "杨旦修",
+            "isbn": "9787522839080",
             "match_stars": 4,
             "role_type": "A",  # 高相关
             "fault_type": "none",
             "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "哲学学院", "rate": 0.85},
+                    {"name": "社会学院", "rate": 0.85},
                     {"name": "信息科学技术学院", "rate": 0.48},
                     {"name": "法学院", "rate": 0.38},
-                    {"name": "社会学院", "rate": 0.29}
+                    {"name": "教育学院", "rate": 0.29}
                 ],
                 "trend": "深度剖析人工智能在现实社会中引发的伦理议题，强调理论与实践结合。"
             }
         },
         {
-            "title": "AI伦理的法律边界",
+            "title": "负责任的人工智能何以可能?",
             "author": "张明",
-            "isbn": "9787302498756",
+            "isbn": "9787313283603",
             "match_stars": 1,
             "role_type": "C",  # 法律视角局限，伦理宽泛
             "fault_type": "oversimplification",
             "trap_focus": "过于强调法律规制，伦理维度阐释不足",
             "social_reason": {
                 "departments": [
-                    {"name": "法学院", "rate": 0.79},
-                    {"name": "哲学学院", "rate": 0.34},
+                    {"name": "人文学院", "rate": 0.79},
+                    {"name": "社会学院", "rate": 0.34},
                     {"name": "计算机科学与工程学院", "rate": 0.27},
-                    {"name": "社会学院", "rate": 0.19}
+                    {"name": "教育学院", "rate": 0.19}
                 ],
                 "trend": "法律政策路径主导，适合人工智能合规与伦理监管相关研究。"
             }
         }
     ],
 
-    #实验组三书籍假定乱设的值：
+    #实验组三：
     "智慧校园": [
         {
-            "title": "智慧时代的校园管理",
-            "author": "刘明",
-            "isbn": "9787300000001",
+            "title": "智慧校园建设研究",
+            "author": "李兆延",
+            "isbn": "9787517076742",
             "match_stars": 2,
             "role_type": "B",
             "fault_type": "scope_limited",
@@ -309,9 +369,9 @@ BOOK_LIBRARY = {
             }
         },
         {
-            "title": "数字化校园创新案例",
-            "author": "王芳",
-            "isbn": "9787040549999",
+            "title": "数字化校园:理念、设计与实现",
+            "author": "刘邦奇",
+            "isbn": "9787312033926",
             "match_stars": 4,
             "role_type": "A",
             "fault_type": "none",
@@ -327,9 +387,9 @@ BOOK_LIBRARY = {
             }
         },
         {
-            "title": "智慧校园未来展望",
-            "author": "陈强",
-            "isbn": "9787100004321",
+            "title": "5G+智慧教育:重塑未来教育新图景",
+            "author": "王红军",
+            "isbn": "9787115589095",
             "match_stars": 1,
             "role_type": "C",
             "fault_type": "theory_bias",
@@ -345,11 +405,12 @@ BOOK_LIBRARY = {
             }
         }
     ],
-    "教师能力建设": [
+
+    "教师能力": [
         {
-            "title": "教师素养提升之道",
-            "author": "孙红",
-            "isbn": "9787560987654",
+            "title": "素养时代的教师专业成长",
+            "author": "汪瑞林",
+            "isbn": "9787576027679",
             "match_stars": 4,
             "role_type": "A",
             "fault_type": "none",
@@ -365,9 +426,9 @@ BOOK_LIBRARY = {
             }
         },
         {
-            "title": "信息时代的教师能力",
-            "author": "李强",
-            "isbn": "9787560123456",
+            "title": "信息化教学技能实践与应用",
+            "author": "王颖",
+            "isbn": "9787513006170",
             "match_stars": 1,
             "role_type": "C",
             "fault_type": "goal_jump",
@@ -383,9 +444,9 @@ BOOK_LIBRARY = {
             }
         },
         {
-            "title": "教师能力结构新解",
-            "author": "王欣",
-            "isbn": "9787560999999",
+            "title": "信息化教学技术与方法:",
+            "author": "周效章",
+            "isbn": "9787109271982",
             "match_stars": 2,
             "role_type": "B",
             "fault_type": "oversimplification",
