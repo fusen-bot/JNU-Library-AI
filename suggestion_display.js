@@ -367,14 +367,21 @@ function showSuggestion(suggestion) {
     function isDuplicateRequest(inputValue) {
         const normalized = normalizeQuery(inputValue);
         const currentTime = Date.now();
-        const timeDiff = currentTime - window.__lastRequestCache.timestamp;
-        
-        // 如果10秒内有相同的规范化查询，则视为重复
-        if (timeDiff < 10000 && window.__lastRequestCache.query_normalized === normalized) {
-            console.log(`⚠️ 检测到重复请求（${(timeDiff/1000).toFixed(2)}秒内）: ${normalized}`);
-            return true;
+        const cache = window.__lastRequestCache || { query_normalized: '', timestamp: 0 };
+        const timeDiff = currentTime - cache.timestamp;
+
+        // 10秒内，相同或互为前缀的规范化查询，视为重复
+        if (timeDiff < 10000) {
+            const prev = cache.query_normalized || '';
+            const similar =
+                normalized === prev ||
+                (normalized && prev && (normalized.startsWith(prev) || prev.startsWith(normalized)));
+            if (similar) {
+                console.log(`⚠️ 检测到相似重复请求（${(timeDiff/1000).toFixed(2)}秒内）: ${normalized} ~ ${prev}`);
+                return true;
+            }
         }
-        
+
         return false;
     }
     
@@ -924,7 +931,7 @@ function showSuggestion(suggestion) {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     handleInput(event);
-                }, 150); // 从300ms降低到150ms，提升响应速度
+                }, 350); // 适度提升防抖，降低无效请求频率
             });
 
             // --- 🚀 新增: 添加Enter键监听器 ---

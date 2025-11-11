@@ -25,7 +25,13 @@ async_tasks = {}
 # 线程池执行器，用于处理异步LLM调用
 executor = ThreadPoolExecutor(max_workers=3)
 # 请求去重缓存：存储最近的请求和匹配结果
-request_cache = {}  # 格式: {query_normalized: {'books_matched': [...], 'task_id': ..., 'timestamp': ...}}
+request_cache: dict[str, dict] = {}  # 格式: {query_normalized: {'books_signature': str, 'task_id': str, 'timestamp': float}}
+# 新增：按书集签名去重的缓存（签名 -> 最近任务）
+books_task_cache: dict[str, dict] = {}  # { books_signature: { 'task_id': str, 'timestamp': float } }
+
+# 可调缓存TTL
+REQUEST_CACHE_TTL_SECONDS: int = 30
+BOOKS_TASK_CACHE_TTL: int = 60
 
 def cleanup_old_tasks():
     """
@@ -42,15 +48,24 @@ def cleanup_old_tasks():
         del async_tasks[task_id]
         logger.info(f"清理过期任务: {task_id}")
     
-    # 同时清理超过10秒的请求缓存
+    # 同时清理超过TTL的请求缓存
     cache_to_remove = []
     for query, cache_data in request_cache.items():
-        if current_time - cache_data.get('timestamp', 0) > 10:  # 10秒
+        if current_time - cache_data.get('timestamp', 0) > REQUEST_CACHE_TTL_SECONDS:
             cache_to_remove.append(query)
     
     for query in cache_to_remove:
         del request_cache[query]
         logger.debug(f"清理过期请求缓存: {query}")
+
+    # 清理过期书集签名缓存
+    books_to_remove = []
+    for sig, data in books_task_cache.items():
+        if current_time - data.get('timestamp', 0) > BOOKS_TASK_CACHE_TTL:
+            books_to_remove.append(sig)
+    for sig in books_to_remove:
+        del books_task_cache[sig]
+        logger.debug(f"清理过期书集签名缓存: {sig}")
 
 # 定期清理任务
 def start_cleanup_timer():
@@ -141,12 +156,15 @@ def normalize_query(query: str) -> str:
     - 去除首尾空格
     - 转换为小写
     - 去除特殊标点符号（保留中文和英文字符）
+    - 去除常见噪声词
     """
     import re
     # 去除首尾空格并转小写
     normalized = query.strip().lower()
     # 去除特殊标点符号，只保留中文、英文、数字和空格
     normalized = re.sub(r'[^\w\s\u4e00-\u9fff]', '', normalized)
+    # 剔除常见噪声词
+    normalized = re.sub(r'(搜索|查找|找|一本|书籍|的|推荐|相关|关于|请|我要|一下)', '', normalized)
     # 压缩多个空格为一个
     normalized = re.sub(r'\s+', ' ', normalized)
     return normalized
@@ -248,16 +266,52 @@ def get_books_with_reasons_api():
             
             # 第三步：生成书籍签名，用于判断是否与缓存匹配
             books_signature = get_matched_books_signature(matched_books)
+            current_time = time.time()
+
+            # 优先：按书集签名复用已有任务（忽略 query 变体差异）
+            if books_signature in books_task_cache:
+                cached = books_task_cache[books_signature]
+                if current_time - cached.get('timestamp', 0) < BOOKS_TASK_CACHE_TTL:
+                    cached_task_id = cached.get('task_id')
+                    if cached_task_id in async_tasks:
+                        # 构建基本书籍信息
+                        basic_books = []
+                        for i, book in enumerate(matched_books):
+                            basic_book = {
+                                "title": book.get('title', f'未知书籍{i+1}'),
+                                "author": book.get('author', '未知作者'),
+                                "isbn": book.get('isbn', f'978711100000{i+1}'),
+                                "cover_url": f"https://example.com/cover{i+1}.jpg",
+                                "match_stars": book.get('match_stars', 0),
+                                "reasons_loading": True
+                            }
+                            basic_books.append(basic_book)
+
+                        # 同步更新 query 级别的请求缓存，方便后续相同规范化query快速命中
+                        request_cache[query_normalized] = {
+                            'books_signature': books_signature,
+                            'task_id': cached_task_id,
+                            'timestamp': current_time
+                        }
+                        logger.info(f"🔄 书集签名复用缓存任务ID: {cached_task_id}（忽略不同query变体）")
+                        return jsonify({
+                            "status": "success",
+                            "user_query": user_query,
+                            "books": basic_books,
+                            "task_id": cached_task_id,
+                            "reasons_loading": True,
+                            "from_cache": True,
+                            "message": "检测到相同书籍集合，复用已有任务"
+                        })
             
             # 第四步：检查缓存，判断是否为重复请求
-            current_time = time.time()
             if query_normalized in request_cache:
                 cached_data = request_cache[query_normalized]
                 time_diff = current_time - cached_data.get('timestamp', 0)
                 cached_signature = cached_data.get('books_signature', '')
                 
-                # 如果10秒内有相同的查询，且匹配的书籍列表一致，则返回缓存的任务ID
-                if time_diff < 10 and cached_signature == books_signature:
+                # 如果TTL内有相同的查询，且匹配的书籍列表一致，则返回缓存的任务ID
+                if time_diff < REQUEST_CACHE_TTL_SECONDS and cached_signature == books_signature:
                     cached_task_id = cached_data.get('task_id')
                     
                     # 检查缓存任务的当前状态
@@ -327,6 +381,11 @@ def get_books_with_reasons_api():
             # 更新缓存
             request_cache[query_normalized] = {
                 'books_signature': books_signature,
+                'task_id': task_id,
+                'timestamp': current_time
+            }
+            # 写入书集签名缓存
+            books_task_cache[books_signature] = {
                 'task_id': task_id,
                 'timestamp': current_time
             }
