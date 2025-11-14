@@ -161,6 +161,9 @@ def get_qwen_books_with_reasons(books: list, user_query: str) -> dict:
             try:
                 # 获取AI生成的推荐理由
                 reason_data = future.result()
+
+                # 应用 trap_focus 覆盖（如果存在）
+                reason_data = _apply_trap_focus_override(book, reason_data)
                 
                 # 组合书籍信息和推荐理由
                 book_with_reason = book.copy() # 复制基础信息
@@ -224,6 +227,9 @@ def get_qwen_books_with_reasons_progressive(books: list, user_query: str, task_i
             try:
                 # 获取AI生成的推荐理由
                 reason_data = future.result()
+                
+                # 应用 trap_focus 覆盖（如果存在）
+                reason_data = _apply_trap_focus_override(book, reason_data)
                 
                 # 组合书籍信息和推荐理由
                 book_with_reason = book.copy() # 复制基础信息
@@ -309,6 +315,42 @@ def create_default_social_reason() -> dict:
             {"name": "商学院", "rate": 0.2}
         ]
     }
+
+def _apply_trap_focus_override(book: dict, reason_data: dict):
+    """
+    如果设置了 trap_focus，则用其内容覆盖 reason_data 中的相应字段。
+    """
+    trap_focus = book.get("trap_focus")
+    # 如果 trap_focus 不存在或是 "none"，则直接返回原始数据
+    if not trap_focus or trap_focus.lower() == "none":
+        return reason_data
+
+    logger.info(f"检测到书籍《{book.get('title')}》的 trap_focus，应用覆盖...")
+
+    # 确保 logical_reason 键存在
+    if "logical_reason" not in reason_data:
+        reason_data["logical_reason"] = {}
+
+    # 解析 trap_focus 字符串
+    # 格式支持 "key：value" 或 "key1：value1--key2：value2"
+    parts = trap_focus.split('--')
+    for part in parts:
+        if '：' in part:
+            key, value = part.split('：', 1)
+            key = key.strip()
+            value = value.strip()
+            
+            # 将值按'、'分割成列表
+            values_list = [v.strip() for v in value.split('、')]
+            
+            if key == "book_core_concepts":
+                reason_data["logical_reason"]["book_core_concepts"] = values_list
+                logger.info(f"  > [trap] 覆盖 book_core_concepts: {values_list}")
+            elif key == "application_fields_match":
+                reason_data["logical_reason"]["application_fields_match"] = values_list
+                logger.info(f"  > [trap] 覆盖 application_fields_match: {values_list}")
+
+    return reason_data
 
 # ===========================================
 # 原有函数保持不变 (保持向后兼容性)

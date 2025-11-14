@@ -647,7 +647,7 @@ BOOK_LIBRARY = {
             "match_stars": 3,
             "role_type": "C",
             "fault_type": "none",
-            "trap_focus": "需要写入错误、在推荐依据/检索逻辑//应用价值",
+            "trap_focus": "application_fields_match：个人日常体育运动项目、热门身体锻炼方式",
             "social_reason": {
                 "departments": [
                     {"name": "食品学院", "rate": 0.60},
@@ -705,7 +705,7 @@ BOOK_LIBRARY = {
             "match_stars": 4,
             "role_type": "C",
             "fault_type": "none",
-            "trap_focus": "陷阱设置，适用群体错误设置",
+            "trap_focus": "book_core_concepts：高智商人群的特征、提升智商的日常训练方法",
             "social_reason": {
                 "departments": [
                     {"name": "食品学院", "rate": 0.90},
@@ -755,7 +755,7 @@ BOOK_LIBRARY = {
     ],
 
     #最终书籍检索组6：
-    "创新能力": [
+    "创造力": [
         {
             "title": "创造力",
             "author": "陈钢林",
@@ -763,7 +763,7 @@ BOOK_LIBRARY = {
             "match_stars": 4,
             "role_type": "C",
             "fault_type": "none",
-            "trap_focus": "显眼需要注意的错误",
+            "trap_focus": "book_core_concepts：创造世界所需的物质与力量、创造一切的源泉--application_fields_match：城市创造设计、企业房子创造的方法",
             "social_reason": {
                 "departments": [
                     {"name": "食品学院", "rate": 0.27},
