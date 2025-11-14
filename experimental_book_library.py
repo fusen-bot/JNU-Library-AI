@@ -117,6 +117,236 @@ BOOK_LIBRARY = {
             }
         }
     ],
+
+#实验组二书籍：
+    "----": [
+        {
+            "title": "教育变革的理念与实践",
+            "author": "刘明",
+            "isbn": "9787301256724",
+            "match_stars": 1,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.91},
+                    {"name": "人文学院", "rate": 0.73},
+                    {"name": "管理学院", "rate": 0.49},
+                    {"name": "社会学院", "rate": 0.42}
+                ],
+                "trend": "系统性探讨教育变革的理论与实施路径，是现代教育改革课程的重要参考文献。"
+            }
+        },
+        {
+            "title": "教育系统重构：政策、技术与创新",
+            "author": "苏伟",
+            "isbn": "9787010194652",
+            "match_stars": 3,
+            "role_type": "B",
+            "fault_type": "policy_biased",
+            "trap_focus": "过度依赖政策指引，缺少基层案例分析",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.82},
+                    {"name": "政策与管理学院", "rate": 0.67},
+                    {"name": "公共管理学院", "rate": 0.58},
+                    {"name": "信息学院", "rate": 0.38}
+                ],
+                "trend": "政策导向强烈的教育变革教材，适合教育管理及教育改革方向学习。"
+            }
+        },
+        {
+            "title": "课堂创新与未来学校",
+            "author": "宋远",
+            "isbn": "9787303221560",
+            "match_stars": 4,
+            "role_type": "C",
+            "fault_type": "innovation_jump",
+            "trap_focus": "直接从课堂创新嫁接到制度变革，过程论证不够",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.48},
+                    {"name": "师范学院", "rate": 0.36},
+                    {"name": "人文学院", "rate": 0.29},
+                    {"name": "艺术设计学院", "rate": 0.18}
+                ],
+                "trend": "以课堂微观改革为核心切入未来教育实践，适合创新教学案例探讨。"
+            }
+        }
+    ],
+    "人工智能伦理": [
+        {
+            "title": "人工智能伦理困境与突破",
+            "author": "周翔",
+            "isbn": "9787576815535",
+            "match_stars": 3,
+            "role_type": "B",
+            "fault_type": "insufficient_argument",
+            "trap_focus": "伦理分析不足以支撑全面社会责任讨论",
+            "social_reason": {
+                "departments": [
+                    {"name": "社会学院", "rate": 0.86},
+                    {"name": "法学院", "rate": 0.74},
+                    {"name": "计算机科学与工程学院", "rate": 0.57},
+                    {"name": "教育学院", "rate": 0.46}
+                ],
+                "trend": "人工智能伦理在社会各领域中的应用与挑战，强调跨学科视角。"
+            }
+        },
+        {
+            "title": "人工智能传播伦理与治理",
+            "author": "杨旦修",
+            "isbn": "9787522839080",
+            "match_stars": 1,
+            "role_type": "A",  # 高相关
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "社会学院", "rate": 0.95},
+                    {"name": "信息科学技术学院", "rate": 0.63},
+                    {"name": "法学院", "rate": 0.51},
+                    {"name": "教育学院", "rate": 0.39}
+                ],
+                "trend": "深度剖析人工智能在现实社会中引发的伦理议题，强调理论与实践结合。"
+            }
+        },
+        {
+            "title": "负责任的人工智能何以可能?",
+            "author": "张明",
+            "isbn": "9787313283603",
+            "match_stars": 4,
+            "role_type": "C",  # 法律视角局限，伦理宽泛
+            "fault_type": "oversimplification",
+            "trap_focus": "过于强调法律规制，伦理维度阐释不足",
+            "social_reason": {
+                "departments": [
+                    {"name": "人文学院", "rate": 0.61},
+                    {"name": "社会学院", "rate": 0.38},
+                    {"name": "计算机科学与工程学院", "rate": 0.24},
+                    {"name": "教育学院", "rate": 0.16}
+                ],
+                "trend": "法律政策路径主导，适合人工智能合规与伦理监管相关研究。"
+            }
+        }
+    ],
+
+    #旧实验组三：
+    "智慧校园": [
+        {
+            "title": "智慧校园建设研究",
+            "author": "李兆延",
+            "isbn": "9787517076742",
+            "match_stars": 3,
+            "role_type": "B",
+            "fault_type": "scope_limited",
+            "trap_focus": "仅关注设施智能化，教学应用不足",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育技术学院", "rate": 0.78},
+                    {"name": "信息学院", "rate": 0.65},
+                    {"name": "管理学院", "rate": 0.42},
+                    {"name": "艺术设计学院", "rate": 0.31}
+                ],
+                "trend": "强调智慧空间和物联网建设，数字基础布局讨论较多。"
+            }
+        },
+        {
+            "title": "数字化校园:理念、设计与实现",
+            "author": "刘邦奇",
+            "isbn": "9787312033926",
+            "match_stars": 1,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "信息学院", "rate": 0.92},
+                    {"name": "教育技术学院", "rate": 0.76},
+                    {"name": "管理学院", "rate": 0.68},
+                    {"name": "艺术设计学院", "rate": 0.44}
+                ],
+                "trend": "收录各地智慧校园落地案例，适合管理与技术融合方向。"
+            }
+        },
+        {
+            "title": "5G+智慧教育:重塑未来教育新图景",
+            "author": "王红军",
+            "isbn": "9787115589095",
+            "match_stars": 4,
+            "role_type": "C",
+            "fault_type": "theory_bias",
+            "trap_focus": "以技术预言为主，实际操作性弱",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育技术学院", "rate": 0.47},
+                    {"name": "管理学院", "rate": 0.35},
+                    {"name": "信息学院", "rate": 0.39},
+                    {"name": "艺术设计学院", "rate": 0.22}
+                ],
+                "trend": "聚焦未来趋势预测，适合理论研究参考。"
+            }
+        }
+    ],
+
+    "教师能力": [
+        {
+            "title": "素养时代的教师专业成长",
+            "author": "汪瑞林",
+            "isbn": "9787576027679",
+            "match_stars": 1,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.81},
+                    {"name": "师范学院", "rate": 0.73},
+                    {"name": "继续教育学院", "rate": 0.31},
+                    {"name": "心理学院", "rate": 0.32}
+                ],
+                "trend": "关注教师基本素质与新技术融合能力培养。"
+            }
+        },
+        {
+            "title": "信息化教学技能实践与应用",
+            "author": "王颖",
+            "isbn": "9787513006170",
+            "match_stars": 4,
+            "role_type": "C",
+            "fault_type": "goal_jump",
+            "trap_focus": "混合了学生素养讨论，界限模糊",
+            "social_reason": {
+                "departments": [
+                    {"name": "师范学院", "rate": 0.59},
+                    {"name": "教育学院", "rate": 0.23},
+                    {"name": "心理学院", "rate": 0.42},
+                    {"name": "继续教育学院", "rate": 0.17}
+                ],
+                "trend": "对数字素养提及较多，但系统性略有欠缺。"
+            }
+        },
+        {
+            "title": "信息化教学技术与方法:",
+            "author": "周效章",
+            "isbn": "9787109271982",
+            "match_stars": 3,
+            "role_type": "B",
+            "fault_type": "oversimplification",
+            "trap_focus": "能力分类粗略，缺少具体发展路径",
+            "social_reason": {
+                "departments": [
+                    {"name": "教育学院", "rate": 0.41},
+                    {"name": "师范学院", "rate": 0.69},
+                    {"name": "心理学院", "rate": 0.18},
+                    {"name": "继续教育学院", "rate": 0.34}
+                ],
+                "trend": "探讨教师能力构成，但案例和实践辅证偏少。"
+            }
+        }
+    ],
+    #测试书籍检索住0：
     "人工智能教育": [
         {
             "title": "人工智能+教育 : 人工智能时代, 未来学校教育的机遇、挑战与重塑路径",
@@ -233,236 +463,355 @@ BOOK_LIBRARY = {
     ],
 
 
-
-#实验组二书籍：
-    "----": [
+    #最终实验检索组1：职业发展与人生规划
+    
+    "职业发展": [
         {
-            "title": "教育变革的理念与实践",
-            "author": "刘明",
-            "isbn": "9787301256724",
-            "match_stars": 1,
+            "title": "大学生创业基础",
+            "author": "何云海",
+            "isbn": "9787115320834",
+            "match_stars": 3,
             "role_type": "A",
             "fault_type": "none",
             "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "教育学院", "rate": 0.91},
-                    {"name": "人文学院", "rate": 0.73},
-                    {"name": "管理学院", "rate": 0.49},
-                    {"name": "社会学院", "rate": 0.42}
+                    {"name": "食品学院", "rate": 0.60},
+                    {"name": "人文学院", "rate": 0.62},
+                    {"name": "商学院", "rate": 0.61},
+                    {"name": "人工智能与计算机学院", "rate": 0.58}
                 ],
-                "trend": "系统性探讨教育变革的理论与实施路径，是现代教育改革课程的重要参考文献。"
+                "trend": "大学生创业基础的权威教材，适合大学生创业和就业指导。"
             }
         },
         {
-            "title": "教育系统重构：政策、技术与创新",
-            "author": "苏伟",
-            "isbn": "9787010194652",
-            "match_stars": 3,
-            "role_type": "B",
-            "fault_type": "policy_biased",
-            "trap_focus": "过度依赖政策指引，缺少基层案例分析",
-            "social_reason": {
-                "departments": [
-                    {"name": "教育学院", "rate": 0.82},
-                    {"name": "政策与管理学院", "rate": 0.67},
-                    {"name": "公共管理学院", "rate": 0.58},
-                    {"name": "信息学院", "rate": 0.38}
-                ],
-                "trend": "政策导向强烈的教育变革教材，适合教育管理及教育改革方向学习。"
-            }
-        },
-        {
-            "title": "课堂创新与未来学校",
-            "author": "宋远",
-            "isbn": "9787303221560",
+            "title": "大学生职业发展与就业指导",
+            "author": "陈光耀",
+            "isbn": "9787303152841",
             "match_stars": 4,
-            "role_type": "C",
-            "fault_type": "innovation_jump",
-            "trap_focus": "直接从课堂创新嫁接到制度变革，过程论证不够",
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "教育学院", "rate": 0.48},
-                    {"name": "师范学院", "rate": 0.36},
+                    {"name": "食品学院", "rate": 0.60},
+                    {"name": "人文学院", "rate": 0.58},
+                    {"name": "商学院", "rate": 0.61},
+                    {"name": "人工智能与计算机学院", "rate": 0.59}
+                ],
+                "trend": "大学生职业发展与就业指导的权威教材，适合大学生职业规划和就业指导。"
+            }
+        },
+        {
+            "title": "我的工作我做主",
+            "author": "知墨",
+            "isbn": "9787560969985",
+            "match_stars": 3,
+            "role_type": "C",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.60},
+                    {"name": "人文学院", "rate": 0.62},
+                    {"name": "商学院", "rate": 0.61},
+                    {"name": "人工智能与计算机学院", "rate": 0.59}
+                ],
+                "trend": "我的工作我做主的权威教材，适合大学生职业规划和就业指导。"
+            }
+        }
+
+    ],
+
+    #最终书籍检索组2：
+    "高校学习": [
+        {
+            "title": "高效学习脑科学",
+            "author": "张三",
+            "isbn": "9787511569684",
+            "match_stars": 4,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.89},
+                    {"name": "人文学院", "rate": 0.93},
+                    {"name": "商学院", "rate": 0.91},
+                    {"name": "人工智能与计算机学院", "rate": 0.94}
+                ],
+                "trend": "高效学习脑科学的权威教材，适合大学生学习方法和学习指导。"
+            }
+        },
+        {
+            "title": "如何用Kindle高效学习",
+            "author": "直树桑",
+            "isbn": "9787111618430",
+            "match_stars": 1,
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.37},
+                    {"name": "人文学院", "rate": 0.39},
+                    {"name": "商学院", "rate": 0.41},
+                    {"name": "人工智能与计算机学院", "rate": 0.39}
+                ],
+                "trend": "高效学习方法的权威教材，适合大学生学习方法和学习指导。"
+            }
+        },
+        {
+            "title": "学习天性",
+            "author": "博勒",
+            "isbn": "9787505753907",
+            "match_stars": 2,
+            "role_type": "C",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.28},
                     {"name": "人文学院", "rate": 0.29},
-                    {"name": "艺术设计学院", "rate": 0.18}
+                    {"name": "商学院", "rate": 0.31},
+                    {"name": "人工智能与计算机学院", "rate": 0.30}
                 ],
-                "trend": "以课堂微观改革为核心切入未来教育实践，适合创新教学案例探讨。"
+                "trend": "高效学习方法的权威教材，适合大学生学习方法和学习指导。"
             }
         }
     ],
-    "人工智能伦理": [
+    #最终书籍检索组3：
+    "心理健康": [
         {
-            "title": "人工智能伦理困境与突破",
-            "author": "周翔",
-            "isbn": "9787576815535",
-            "match_stars": 3,
+            "title": "大学生心理健康",
+            "author": "李俊晓",
+            "isbn": "9787576512748",
+            "match_stars": 4,
             "role_type": "B",
-            "fault_type": "insufficient_argument",
-            "trap_focus": "伦理分析不足以支撑全面社会责任讨论",
-            "social_reason": {
-                "departments": [
-                    {"name": "社会学院", "rate": 0.86},
-                    {"name": "法学院", "rate": 0.74},
-                    {"name": "计算机科学与工程学院", "rate": 0.57},
-                    {"name": "教育学院", "rate": 0.46}
-                ],
-                "trend": "人工智能伦理在社会各领域中的应用与挑战，强调跨学科视角。"
-            }
-        },
-        {
-            "title": "人工智能传播伦理与治理",
-            "author": "杨旦修",
-            "isbn": "9787522839080",
-            "match_stars": 1,
-            "role_type": "A",  # 高相关
             "fault_type": "none",
             "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "社会学院", "rate": 0.95},
-                    {"name": "信息科学技术学院", "rate": 0.63},
-                    {"name": "法学院", "rate": 0.51},
-                    {"name": "教育学院", "rate": 0.39}
+                    {"name": "食品学院", "rate": 0.20},
+                    {"name": "人文学院", "rate": 0.22},
+                    {"name": "商学院", "rate": 0.19},
+                    {"name": "人工智能与计算机学院", "rate": 0.19}
                 ],
-                "trend": "深度剖析人工智能在现实社会中引发的伦理议题，强调理论与实践结合。"
+                "trend": "适合大学生心理健康和学习方法和学习指导。"
             }
         },
         {
-            "title": "负责任的人工智能何以可能?",
-            "author": "张明",
-            "isbn": "9787313283603",
-            "match_stars": 4,
-            "role_type": "C",  # 法律视角局限，伦理宽泛
-            "fault_type": "oversimplification",
-            "trap_focus": "过于强调法律规制，伦理维度阐释不足",
+            "title": "境由心造:人生百态背后的心理真相",
+            "author": "季龙妹",
+            "isbn": "9787545820218",
+            "match_stars": 1,
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "人文学院", "rate": 0.61},
-                    {"name": "社会学院", "rate": 0.38},
-                    {"name": "计算机科学与工程学院", "rate": 0.24},
-                    {"name": "教育学院", "rate": 0.16}
+                    {"name": "食品学院", "rate": 0.87},
+                    {"name": "人文学院", "rate": 0.92},
+                    {"name": "商学院", "rate": 0.86},
+                    {"name": "人工智能与计算机学院", "rate": 0.89}
                 ],
-                "trend": "法律政策路径主导，适合人工智能合规与伦理监管相关研究。"
+                "trend": "适合大学生心理健康和学习方法和学习指导。"
+            }
+        },
+        {
+            "title": "心理健康教育改革",
+            "author": "徐晓虹",
+            "isbn": "9787551624886",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.60},
+                    {"name": "人文学院", "rate": 0.65},
+                    {"name": "商学院", "rate": 0.61},
+                    {"name": "人工智能与计算机学院", "rate": 0.59}
+                ],
+                "trend": "学习力的权威教材，适合大学生学习方法和学习指导。"
             }
         }
-    ],
 
-    #实验组三：
-    "智慧校园": [
+    ],
+    #最终书籍检索组4：此组后面开始内容有陷阱设置
+    "健康生活": [
         {
-            "title": "智慧校园建设研究",
-            "author": "李兆延",
-            "isbn": "9787517076742",
+            "title": "健康生活处方",
+            "author": "肖特",
+            "isbn": "9787504695635",
             "match_stars": 3,
-            "role_type": "B",
-            "fault_type": "scope_limited",
-            "trap_focus": "仅关注设施智能化，教学应用不足",
+            "role_type": "C",
+            "fault_type": "none",
+            "trap_focus": "需要写入错误、在推荐依据/检索逻辑//应用价值",
             "social_reason": {
                 "departments": [
-                    {"name": "教育技术学院", "rate": 0.78},
-                    {"name": "信息学院", "rate": 0.65},
-                    {"name": "管理学院", "rate": 0.42},
-                    {"name": "艺术设计学院", "rate": 0.31}
+                    {"name": "食品学院", "rate": 0.60},
+                    {"name": "人文学院", "rate": 0.62},
+                    {"name": "商学院", "rate": 0.61},
+                    {"name": "人工智能与计算机学院", "rate": 0.59}
                 ],
-                "trend": "强调智慧空间和物联网建设，数字基础布局讨论较多。"
+                "trend": "适合大学生健康生活和学习方法和学习指导。"
             }
         },
         {
-            "title": "数字化校园:理念、设计与实现",
-            "author": "刘邦奇",
-            "isbn": "9787312033926",
-            "match_stars": 1,
+            "title": "健康生活方式",
+            "author": "黄萌",
+            "isbn": "9787521413151",
+            "match_stars": 3,
             "role_type": "A",
             "fault_type": "none",
             "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "信息学院", "rate": 0.92},
-                    {"name": "教育技术学院", "rate": 0.76},
-                    {"name": "管理学院", "rate": 0.68},
-                    {"name": "艺术设计学院", "rate": 0.44}
+                    {"name": "食品学院", "rate": 0.59},
+                    {"name": "人文学院", "rate": 0.62},
+                    {"name": "商学院", "rate": 0.53},
+                    {"name": "人工智能与计算机学院", "rate": 0.61}
                 ],
-                "trend": "收录各地智慧校园落地案例，适合管理与技术融合方向。"
+                "trend": "适合大学生健康生活和学习方法和学习指导。"
             }
         },
         {
-            "title": "5G+智慧教育:重塑未来教育新图景",
-            "author": "王红军",
-            "isbn": "9787115589095",
-            "match_stars": 4,
+            "title": "中国城市健康生活报告",
+            "author": "黄钢",
+            "isbn": "9787520170574",
+            "match_stars": 3,
             "role_type": "C",
-            "fault_type": "theory_bias",
-            "trap_focus": "以技术预言为主，实际操作性弱",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "教育技术学院", "rate": 0.47},
-                    {"name": "管理学院", "rate": 0.35},
-                    {"name": "信息学院", "rate": 0.39},
-                    {"name": "艺术设计学院", "rate": 0.22}
+                    {"name": "食品学院", "rate": 0.59},
+                    {"name": "人文学院", "rate": 0.62},
+                    {"name": "商学院", "rate": 0.53},
+                    {"name": "人工智能与计算机学院", "rate": 0.59}
                 ],
-                "trend": "聚焦未来趋势预测，适合理论研究参考。"
+                "trend": "适合大学生健康生活和学习方法和学习指导。"
             }
         }
     ],
 
-    "教师能力": [
+    #最终书籍检索组5：
+    "高情商沟通": [
         {
-            "title": "素养时代的教师专业成长",
-            "author": "汪瑞林",
-            "isbn": "9787576027679",
-            "match_stars": 1,
+            "title": "10分钟读懂高情商对话",
+            "author": "程国辉",
+            "isbn": "9787515842530",
+            "match_stars": 4,
+            "role_type": "C",
+            "fault_type": "none",
+            "trap_focus": "陷阱设置，适用群体错误设置",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.90},
+                    {"name": "人文学院", "rate": 0.92},
+                    {"name": "商学院", "rate": 0.91},
+                    {"name": "人工智能与计算机学院", "rate": 0.98}
+                ],
+                "trend": "10分钟读懂高情商对话的权威教材，适合大学生高情商沟通和学习方法和学习指导。"
+            }
+        },
+        {
+            "title": "高情商说话",
+            "author": "谷厚志",
+            "isbn": "9787504695475",
+            "match_stars": 2,
             "role_type": "A",
             "fault_type": "none",
             "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "教育学院", "rate": 0.81},
-                    {"name": "师范学院", "rate": 0.73},
-                    {"name": "继续教育学院", "rate": 0.31},
-                    {"name": "心理学院", "rate": 0.32}
+                    {"name": "食品学院", "rate": 0.50},
+                    {"name": "人文学院", "rate": 0.52},
+                    {"name": "商学院", "rate": 0.51},
+                    {"name": "人工智能与计算机学院", "rate": 0.53}
                 ],
-                "trend": "关注教师基本素质与新技术融合能力培养。"
+                "trend": "适合大学生高情商沟通和学习方法和学习指导。"
             }
         },
         {
-            "title": "信息化教学技能实践与应用",
-            "author": "王颖",
-            "isbn": "9787513006170",
+            "title": "情商:为什么情商比智商更重要",
+            "author": "戈尔曼",
+            "isbn": "9787521729788",
+            "match_stars": 1,
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.30},
+                    {"name": "人文学院", "rate": 0.32},
+                    {"name": "商学院", "rate": 0.31},
+                    {"name": "人工智能与计算机学院", "rate": 0.35}
+                ],
+                "trend": "适合大学生高情商沟通和学习方法和学习指导。"
+            }
+        }
+    ],
+
+    #最终书籍检索组6：
+    "创新能力": [
+        {
+            "title": "创造力",
+            "author": "陈钢林",
+            "isbn": "none",
             "match_stars": 4,
             "role_type": "C",
-            "fault_type": "goal_jump",
-            "trap_focus": "混合了学生素养讨论，界限模糊",
+            "fault_type": "none",
+            "trap_focus": "显眼需要注意的错误",
             "social_reason": {
                 "departments": [
-                    {"name": "师范学院", "rate": 0.59},
-                    {"name": "教育学院", "rate": 0.23},
-                    {"name": "心理学院", "rate": 0.42},
-                    {"name": "继续教育学院", "rate": 0.17}
+                    {"name": "食品学院", "rate": 0.27},
+                    {"name": "人文学院", "rate": 0.32},
+                    {"name": "商学院", "rate": 0.31},
+                    {"name": "人工智能与计算机学院", "rate": 0.25}
                 ],
-                "trend": "对数字素养提及较多，但系统性略有欠缺。"
+                "trend": "适合大学生创造力培养和学习方法和学习指导。"
             }
         },
         {
-            "title": "信息化教学技术与方法:",
-            "author": "周效章",
-            "isbn": "9787109271982",
-            "match_stars": 3,
-            "role_type": "B",
-            "fault_type": "oversimplification",
-            "trap_focus": "能力分类粗略，缺少具体发展路径",
+            "title": "创造力:跳出盒子思考",
+            "author": "兰德尔",
+            "isbn": "9787313113184",
+            "match_stars": 2,
+            "role_type": "A",
+            "fault_type": "none",
+            "trap_focus": "none",
             "social_reason": {
                 "departments": [
-                    {"name": "教育学院", "rate": 0.41},
-                    {"name": "师范学院", "rate": 0.69},
-                    {"name": "心理学院", "rate": 0.18},
-                    {"name": "继续教育学院", "rate": 0.34}
+                    {"name": "食品学院", "rate": 0.81},
+                    {"name": "人文学院", "rate": 0.89},
+                    {"name": "商学院", "rate": 0.88},
+                    {"name": "人工智能与计算机学院", "rate": 0.90}
                 ],
-                "trend": "探讨教师能力构成，但案例和实践辅证偏少。"
+                "trend": "适合大学生创造力培养和学习方法和学习指导。"
+            }
+        },
+        {
+            "title": "创造的勇气",
+            "author": "May, Rollo",
+            "isbn": "9787300336947",
+            "match_stars": 2,
+            "role_type": "B",
+            "fault_type": "none",
+            "trap_focus": "none",
+            "social_reason": {
+                "departments": [
+                    {"name": "食品学院", "rate": 0.61},
+                    {"name": "人文学院", "rate": 0.59},
+                    {"name": "商学院", "rate": 0.57},
+                    {"name": "人工智能与计算机学院", "rate": 0.55}
+                ],
+                "trend": "适合大学生创造力培养和学习方法和学习指导。"
             }
         }
     ]
-
+        
 }
 
 
