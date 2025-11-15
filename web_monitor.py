@@ -765,6 +765,25 @@ def inject_monitor_script(driver):
         logger.error(f"注入监听脚本时发生错误: {str(e)}")
         raise
 
+def inject_rating_monitor_script(driver):
+    """
+    注入评分监控脚本
+    """
+    try:
+        with open('rating_monitor.js', 'r', encoding='utf-8') as f:
+            script_content = f.read()
+        
+        # 添加注入标志
+        script_content += "\nwindow.jnuRatingMonitorInjected = true;"
+        
+        driver.execute_script(script_content)
+        logger.info("成功注入评分监控脚本")
+        
+    except FileNotFoundError:
+        logger.error("rating_monitor.js 文件未找到。")
+    except Exception as e:
+        logger.error(f"注入评分监控脚本时发生错误: {e}")
+
 def start_browser():
     try:
         chrome_options = Options()
@@ -812,6 +831,7 @@ if __name__ == "__main__":
     
     # 智能监控主循环
     script_injected = False  # 跟踪脚本是否已注入
+    rating_monitor_injected = False # 新增：跟踪评分监控脚本的状态
     
     try:
         while True:
@@ -823,6 +843,8 @@ if __name__ == "__main__":
                 is_on_target_site = "opac.jiangnan.edu.cn" in current_url
                 # 检查是否在登录页面
                 is_on_login_page = "authserver.jiangnan.edu.cn" in current_url
+                # 新增：检查是否在书籍详情页
+                is_on_book_details_page = "/searchList/bookDetails/" in current_url
                 
                 if is_on_target_site:
                     # 在目标网站上，检查脚本状态
@@ -842,12 +864,34 @@ if __name__ == "__main__":
                         # 脚本已存在但我们还没有记录，说明是页面刷新后的状态
                         script_injected = True
                         logger.info("检测到脚本已存在，监控继续运行")
-                
+                    
+                    # 在书籍详情页，额外注入评分监控脚本
+                    if is_on_book_details_page:
+                        try:
+                            is_rating_monitor_active = driver.execute_script("return window.jnuRatingMonitorInjected === true;")
+                        except Exception:
+                            is_rating_monitor_active = False
+                        
+                        if not is_rating_monitor_active:
+                            logger.info("检测到书籍详情页，准备注入评分监控脚本...")
+                            time.sleep(1) # 短暂等待
+                            inject_rating_monitor_script(driver)
+                            rating_monitor_injected = True
+                        elif not rating_monitor_injected:
+                            rating_monitor_injected = True
+                            logger.info("检测到评分监控脚本已存在")
+                    else:
+                        # 不在详情页时，重置评分监控注入状态
+                        if rating_monitor_injected:
+                            logger.info("已离开书籍详情页，重置评分监控状态")
+                            rating_monitor_injected = False
+
                 elif is_on_login_page:
                     # 在登录页面，等待用户完成登录
                     if script_injected:
                         logger.info("检测到跳转至登录页面，脚本将在返回后重新注入")
                         script_injected = False
+                        rating_monitor_injected = False # 同时重置
                     else:
                         logger.debug("等待用户完成登录认证...")
                 
@@ -856,6 +900,7 @@ if __name__ == "__main__":
                     if script_injected:
                         logger.info(f"检测到导航至外部页面: {current_url}")
                         script_injected = False
+                        rating_monitor_injected = False # 同时重置
                 
             except Exception as e:
                 logger.error(f"监控循环出错 (可能浏览器已关闭): {e}")
@@ -869,6 +914,7 @@ if __name__ == "__main__":
                 logger.info("正在尝试重启浏览器...")
                 driver = start_browser()
                 script_injected = False  # 重启后重置状态
+                rating_monitor_injected = False # 重启后重置状态
             
             time.sleep(3)  # 每3秒检查一次
             
