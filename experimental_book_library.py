@@ -875,26 +875,59 @@ def _chars_to_set(text: str) -> Set[str]:
             valid_chars.add(ch.lower())
     return valid_chars
 
+# 新增：关键词严格归一化，仅用于严格匹配
+def _normalize_keyword(text: str) -> str:
+    """
+    仅用于任务关键词与用户 query 的严格匹配：
+    - 全部转小写
+    - 去掉所有空白字符（空格、换行、制表符等）
+    - 不做分词 / 模糊处理，仅做简单的字符归一化
+    """
+    return "".join(ch.lower() for ch in text if not ch.isspace())
+
+# 预构建严格匹配索引，降低每次检索的延迟
+NORMALIZED_TASK_INDEX: Dict[str, List[Dict[str, Any]]] = {
+    _normalize_keyword(task_keyword): books
+    for task_keyword, books in BOOK_LIBRARY.items()
+}
+
 
 def find_books_by_task(query: str) -> List[Dict[str, Any]]:
     """
-    根据用户查询在实验书库中精确匹配任务，并返回对应的书籍列表。
-    如果query是某个task_keyword的全字符子集（即包含所有字符），也可以匹配成功。
+    根据用户查询在实验书库中匹配任务，并返回对应的书籍列表。
+
+    匹配规则（从严到宽，按顺序短路）：
+    1. 严格匹配：
+       - 去除所有空白、转小写后，用户 query 与任务关键词完全一致
+    2. 包含 / 乱序匹配（满足你「检索主题每一个字符都包含，空格顺序不管」的诉求）：
+       - 将任务关键词和用户 query 都转成「有效字符集合」（忽略空白、符号，统一小写）
+       - 只要“任务关键词的每一个字符”都出现在用户 query 的字符集合中即可：
+         - 允许 query 比关键词更长（如「职业发展与就业」 命中 「职业发展」）
+         - 允许字符顺序不同（如「发展职业」 命中 「职业发展」）
+       - 不做更宽松的模糊匹配，保证传给后端大模型的是「已知的标准任务关键词」而不是任意字符串
     """
-    query = query.strip()
     if not query:
         return []
 
-    normalized_query: str = query.lower()
-    query_char_set: Set[str] = _chars_to_set(normalized_query)
+    # 1) 严格规范化：去掉空白，全部转小写
+    normalized_query: str = _normalize_keyword(query)
+    if not normalized_query:
+        return []
+
+    # 1. 严格 O(1) 匹配：命中标准任务关键词就直接返回
+    strict_hit = NORMALIZED_TASK_INDEX.get(normalized_query)
+    if strict_hit is not None:
+        return strict_hit
+
+    # 2. 字符包含 / 乱序匹配：满足「每一个字符都包含、空格顺序不管」
+    query_char_set: Set[str] = _chars_to_set(query)
+    if not query_char_set:
+        return []
 
     for task_keyword, books in BOOK_LIBRARY.items():
-        # 第一优先是精确字符串匹配
-        if normalized_query == task_keyword.lower():
-            return books
-        # 如果 query 的字符集是 task_keyword 的字符集的子集（即 query 能重组成 task_keyword），也算匹配
-        kw_char_set: Set[str] = _chars_to_set(task_keyword.lower())
-        if query_char_set and query_char_set == kw_char_set:
+        kw_char_set: Set[str] = _chars_to_set(task_keyword)
+        # 关键：任务关键词的每个字符都必须出现在用户 query 中
+        if kw_char_set and kw_char_set.issubset(query_char_set):
             return books
 
     return []
