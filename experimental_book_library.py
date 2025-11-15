@@ -845,116 +845,56 @@ from typing import Any, Dict, List, Optional, Tuple
 import jieba
 
 
-def _tokenize_to_set(text: str) -> set[str]:
+from typing import Set
+
+def _tokenize_to_set(text: str) -> Set[str]:
     """
-    使用 jieba 对文本分词，并去除空字符、纯空白等无效 token。
-    返回去重后的 token 集合，便于做顺序无关的匹配。
+    使用 jieba 对文本进行智能分词，去除停用词、空字符与常见无效 token。
+    并可选做基础归一化增强匹配智能性。
+    返回去重后的 token 集合，便于做顺序无关的智能匹配。
     """
-    tokens: set[str] = set()
-    for token in jieba.cut(text):
-        stripped: str = token.strip()
-        if not stripped:
+    stopwords: Set[str] = {"的", "了", "和", "是", "在", "与", "及", "或"}
+    tokens: Set[str] = set()
+    for token in jieba.cut(text, cut_all=False):
+        stripped: str = token.strip().lower()
+        if not stripped or stripped in stopwords:
             continue
         tokens.add(stripped)
     return tokens
 
-
-def _chars_to_set(text: str) -> set[str]:
+def _chars_to_set(text: str) -> Set[str]:
     """
-    将文本拆成单字符集合，去掉空白字符。
-    用于在分词不稳定或词序打乱时，通过字符级重合度做补充匹配。
+    智能提取文本中的有效汉字和字母字符集合，去掉无意义符号和空白字符。
+    注重中文、英文及数字等字符，提升匹配的健壮性。
     """
-    return {ch for ch in text if not ch.isspace()}
+    valid_chars: Set[str] = set()
+    for ch in text:
+        if ch.isspace():
+            continue
+        if '\u4e00' <= ch <= '\u9fff' or ch.isalpha() or ch.isdigit():
+            valid_chars.add(ch.lower())
+    return valid_chars
 
 
 def find_books_by_task(query: str) -> List[Dict[str, Any]]:
     """
-    根据用户查询在实验书库中模糊匹配任务，并返回对应的书籍列表。
-    使用 jieba 分词 + 相似度打分进行更灵活、鲁棒的匹配：
-    - 结合分词重叠程度（覆盖率 + Jaccard 相似度）
-    - 同时考虑任务关键词与原始查询之间的子串包含关系
-    - 选取得分最高且超过阈值的任务对应书籍
+    根据用户查询在实验书库中精确匹配任务，并返回对应的书籍列表。
+    如果query是某个task_keyword的全字符子集（即包含所有字符），也可以匹配成功。
     """
     query = query.strip()
-    # 查询过短时不进行自动匹配，避免仅输入 1～2 个字就“秒出结果”，
-    # 让上游模型继续引导用户补充意图。
     if not query:
         return []
 
-    MIN_QUERY_LEN_CHARS: int = 3
-    if len(query) < MIN_QUERY_LEN_CHARS:
-        return []
-
     normalized_query: str = query.lower()
-    normalized_query_words: set[str] = _tokenize_to_set(normalized_query)
-    normalized_query_chars: set[str] = _chars_to_set(normalized_query)
-
-    best_score: float = 0.0
-    best_books: Optional[List[Dict[str, Any]]] = None
+    query_char_set: Set[str] = _chars_to_set(normalized_query)
 
     for task_keyword, books in BOOK_LIBRARY.items():
-        task_keyword_lower: str = task_keyword.lower()
-        task_keyword_words: set[str] = _tokenize_to_set(task_keyword_lower)
-        task_keyword_chars: set[str] = _chars_to_set(task_keyword_lower)
-
-        if not task_keyword_words and not task_keyword_chars:
-            continue
-
-        # 分词重叠（词级）
-        overlap_words: set[str] = normalized_query_words & task_keyword_words
-
-        # 字符级重叠，用于词序打乱或分词不稳定时的补充
-        overlap_chars: set[str] = normalized_query_chars & task_keyword_chars
-
-        if (
-            not overlap_words
-            and not overlap_chars
-            and task_keyword_lower not in normalized_query
-            and normalized_query not in task_keyword_lower
-        ):
-            # 完全没有词/字符重合且不存在子串关系，认为相似度很低
-            continue
-
-        union_words: set[str] = normalized_query_words | task_keyword_words
-        # 任务关键词被命中的程度
-        coverage: float = len(overlap_words) / len(task_keyword_words) if task_keyword_words else 0.0
-        # 用户查询中有多少部分被任务关键词“解释”掉（词级覆盖），尽量让每个词都参与匹配
-        query_coverage: float = (
-            len(overlap_words) / len(normalized_query_words) if normalized_query_words else 0.0
-        )
-        jaccard: float = len(overlap_words) / len(union_words) if union_words else 0.0
-
-        # 字符级覆盖率：处理“字符顺序打乱但组成相近”的情况
-        char_coverage: float = (
-            len(overlap_chars) / len(task_keyword_chars) if task_keyword_chars else 0.0
-        )
-        char_query_coverage: float = (
-            len(overlap_chars) / len(normalized_query_chars) if normalized_query_chars else 0.0
-        )
-
-        # 子串包含给予一个额外的加分
-        substring_boost: float = 0.0
-        if task_keyword_lower in normalized_query or normalized_query in task_keyword_lower:
-            substring_boost = 0.2
-
-        # 综合得分：优先保证任务关键词和查询双方的覆盖率，再考虑整体相似度；
-        # 同时引入字符级覆盖，增强对“词序乱了但用词接近”的鲁棒性。
-        score: float = (
-            0.35 * coverage
-            + 0.15 * query_coverage
-            + 0.20 * jaccard
-            + 0.15 * char_coverage
-            + 0.15 * char_query_coverage
-            + substring_boost
-        )
-
-        if score > best_score:
-            best_score = score
-            best_books = books
-
-    # 设置一个最低阈值，避免误匹配；阈值可按实验效果再微调
-    MIN_SCORE_THRESHOLD: float = 0.30
-    if best_books is not None and best_score >= MIN_SCORE_THRESHOLD:
-        return best_books
+        # 第一优先是精确字符串匹配
+        if normalized_query == task_keyword.lower():
+            return books
+        # 如果 query 的字符集是 task_keyword 的字符集的子集（即 query 能重组成 task_keyword），也算匹配
+        kw_char_set: Set[str] = _chars_to_set(task_keyword.lower())
+        if query_char_set and query_char_set == kw_char_set:
+            return books
 
     return []
