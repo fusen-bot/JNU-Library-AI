@@ -214,142 +214,11 @@
             this.currentSearchSession = null;
         }
         
-        /**
-         * 手动开始被试实验会话
-         * @param {string} participantName - 被试姓名
-         * @param {string} experimentDescription - 实验描述（可选）
-         */
-        manualStartParticipantSession(participantName, experimentDescription = '') {
-            if (this.currentSearchSession) {
-                console.log('⚠️ 已有进行中的搜索会话，先结束它');
-                this.endSearchSession('manual_override');
-            }
-            
-            // 生成新的全局连续被试ID
-            this.sessionId = this.generateGlobalParticipantId();
-            this.sessionStartTime = this.getFormattedTimestamp(new Date());
-            
-            // 存储被试信息
-            this.participantName = participantName;
-            this.experimentDescription = experimentDescription;
-            
-            // 存储到sessionStorage
-            sessionStorage.setItem('jnu_library_session_id', this.sessionId);
-            sessionStorage.setItem('jnu_library_session_start', this.sessionStartTime);
-            sessionStorage.setItem('jnu_participant_name', participantName);
-            sessionStorage.setItem('jnu_experiment_description', experimentDescription);
-            
-            this.currentSearchSession = {
-                search_id: `experiment_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                participant_name: participantName,
-                experiment_description: experimentDescription,
-                start_time: this.getFormattedTimestamp(new Date()),
-                start_timestamp: Date.now(),
-                books_clicked: [],
-                events: [],
-                is_manual: true
-            };
-            
-            console.log(`🎯 手动开始被试实验会话: ${participantName} (${this.sessionId})`, this.currentSearchSession);
-            
-            this.recordEvent('participant_experiment_start', {
-                participant_id: this.sessionId,
-                participant_name: participantName,
-                experiment_description: experimentDescription,
-                search_id: this.currentSearchSession.search_id
-            }, true);
-        }
-        
-        /**
-         * 手动开始搜索会话（兼容旧方法）
-         * @param {string} query - 搜索查询（可选）
-         * @param {string} description - 会话描述（可选）
-         */
-        manualStartSearchSession(query = '', description = '') {
-            if (this.currentSearchSession) {
-                console.log('⚠️ 已有进行中的搜索会话，先结束它');
-                this.endSearchSession('manual_override');
-            }
-            
-            this.currentSearchSession = {
-                search_id: `manual_search_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                query: query,
-                description: description,
-                start_time: this.getFormattedTimestamp(new Date()),
-                start_timestamp: Date.now(),
-                books_clicked: [],
-                events: [],
-                is_manual: true
-            };
-            
-            console.log(`🎯 手动开始搜索会话: ${description || query}`, this.currentSearchSession);
-            
-            // Paused to reduce noise and redundancy
-            // this.recordEvent('manual_search_session_start', {
-            //     search_id: this.currentSearchSession.search_id,
-            //     query: query,
-            //     description: description,
-            //     query_length: query.length
-            // });
-        }
-        
-        /**
-         * 手动结束被试实验会话
-         * @param {string} reason - 结束原因
-         */
-        manualEndParticipantSession(reason = 'experiment_completed') {
-            if (!this.currentSearchSession) {
-                console.log('⚠️ 没有进行中的实验会话');
-                return;
-            }
-            
-            const duration = Date.now() - this.currentSearchSession.start_timestamp;
-            
-            console.log(`🏁 手动结束被试实验会话: ${this.currentSearchSession.participant_name} (${this.sessionId})，原因: ${reason}，耗时: ${duration}ms`);
-            
-            this.recordEvent('participant_experiment_end', {
-                participant_id: this.sessionId,
-                participant_name: this.currentSearchSession.participant_name,
-                experiment_description: this.currentSearchSession.experiment_description,
-                search_id: this.currentSearchSession.search_id,
-                duration_ms: duration,
-                end_reason: reason,
-                books_clicked_count: this.currentSearchSession.books_clicked.length,
-                books_clicked: this.currentSearchSession.books_clicked,
-                events_count: this.currentSearchSession.events.length
-            }, true);
-            
-            this.currentSearchSession = null;
-        }
-        
-        /**
-         * 手动结束搜索会话（兼容旧方法）
-         * @param {string} reason - 结束原因
-         */
-        manualEndSearchSession(reason = 'manual_completed') {
-            if (!this.currentSearchSession) {
-                console.log('⚠️ 没有进行中的搜索会话');
-                return;
-            }
-            
-            const duration = Date.now() - this.currentSearchSession.start_timestamp;
-            
-            console.log(`🏁 手动结束搜索会话: ${this.currentSearchSession.description || this.currentSearchSession.query}，原因: ${reason}，耗时: ${duration}ms`);
-            
-            // Paused to reduce noise and redundancy
-            // this.recordEvent('manual_search_session_end', {
-            //     search_id: this.currentSearchSession.search_id,
-            //     query: this.currentSearchSession.query,
-            //     description: this.currentSearchSession.description,
-            //     duration_ms: duration,
-            //     end_reason: reason,
-            //     books_clicked_count: this.currentSearchSession.books_clicked.length,
-            //     books_clicked: this.currentSearchSession.books_clicked,
-            //     events_count: this.currentSearchSession.events.length
-            // }, true);
-            
-            this.currentSearchSession = null;
-        }
+        // 说明：原先这里有一组“手动开始/结束被试实验/搜索会话”的方法
+        // manualStartParticipantSession / manualEndParticipantSession /
+        // manualStartSearchSession / manualEndSearchSession
+        // 这些方法依赖人工在终端或控制台操作，现已废弃，统一改为自动会话管理，
+        // 会话开始于页面加载，结束于页面关闭或刷新，不再需要手动干预。
         
         /**
          * 获取当前会话状态
@@ -379,7 +248,7 @@
         }
         
         /**
-         * 记录书籍点击事件
+         * 记录书籍点击事件（仅本地统计，用于聚合日志）
          * @param {Object} bookInfo - 书籍信息
          */
         recordBookClick(bookInfo) {
@@ -389,8 +258,8 @@
                 book_isbn: bookInfo.isbn,
                 click_timestamp: this.getFormattedTimestamp(new Date())
             };
-            
-            // 如果有当前搜索会话，添加到会话中
+
+            // 如果有当前搜索会话，添加到会话中（仅用于本地统计）
             if (this.currentSearchSession) {
                 this.currentSearchSession.books_clicked.push(clickEvent);
                 this.currentSearchSession.events.push({
@@ -399,13 +268,7 @@
                     data: clickEvent
                 });
             }
-            
-            // 记录独立的书籍点击事件
-            this.recordEvent('book_clicked', {
-                search_id: this.currentSearchSession?.search_id || null,
-                ...clickEvent
-            });
-            
+
             // 更新书籍交互统计
             this.updateBookInteraction(bookInfo.isbn, 'click');
         }
@@ -435,13 +298,6 @@
                 interaction.hover_start_time = Date.now();
                 interaction.expand_count += 1;
                 
-                this.recordEvent('book_hover_start', {
-                    search_id: this.currentSearchSession?.search_id || null,
-                    book_isbn: isbn,
-                    book_title: bookInfo.title,
-                    expand_count: interaction.expand_count
-                });
-                
             } else if (action === 'hover_end') {
                 const interaction = this.bookInteractions.get(isbn);
                 if (interaction && interaction.hover_start_time) {
@@ -453,15 +309,6 @@
                         duration_ms: hoverDuration
                     });
                     interaction.hover_start_time = null;
-                    
-                    this.recordEvent('book_hover_end', {
-                        search_id: this.currentSearchSession?.search_id || null,
-                        book_isbn: isbn,
-                        book_title: bookInfo.title,
-                        hover_duration_ms: hoverDuration,
-                        total_hover_time_ms: interaction.total_hover_time,
-                        total_expand_count: interaction.expand_count
-                    });
                 }
             }
         }
@@ -697,24 +544,6 @@
     
     window.getSessionStats = () => {
         return window.JNULibrarySessionManager.getSessionStats();
-    };
-    
-    // 暴露手动控制方法到全局
-    window.manualStartSearchSession = (query, description) => {
-        window.JNULibrarySessionManager.manualStartSearchSession(query, description);
-    };
-    
-    window.manualEndSearchSession = (reason) => {
-        window.JNULibrarySessionManager.manualEndSearchSession(reason);
-    };
-    
-    // 暴露新的被试实验控制方法
-    window.manualStartParticipantSession = (participantName, experimentDescription) => {
-        window.JNULibrarySessionManager.manualStartParticipantSession(participantName, experimentDescription);
-    };
-    
-    window.manualEndParticipantSession = (reason) => {
-        window.JNULibrarySessionManager.manualEndParticipantSession(reason);
     };
     
     window.getCurrentSessionStatus = () => {

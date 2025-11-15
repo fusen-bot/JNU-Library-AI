@@ -548,6 +548,90 @@ def handle_interaction_events():
         logger.error(f"处理交互事件时发生错误: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+
+@app.route('/api/query_log', methods=['POST'])
+def handle_query_log() -> "tuple[dict, int] | tuple[dict, int] | tuple[dict, int]":  # type: ignore[type-arg]
+    """
+    新的API端点：接收前端发送的聚合检索日志记录（QueryLogRecord）
+
+    与 /api/interaction_events 的区别：
+    - 一次只接收一条聚合后的检索记录，而不是事件流
+    - 不再依赖 event_type / heartbeat / page_visible 等事件
+    """
+    try:
+        payload = request.json or {}
+        session_id: str = payload.get("session_id", "")
+        query_text: str = payload.get("query_text", "")
+        books: list[dict] = payload.get("books", [])
+
+        if not session_id:
+            return jsonify({
+                "status": "error",
+                "error": "缺少 session_id 字段"
+            }), 400
+
+        if not query_text:
+            return jsonify({
+                "status": "error",
+                "error": "缺少 query_text 字段"
+            }), 400
+
+        if not isinstance(books, list) or not books:
+            return jsonify({
+                "status": "error",
+                "error": "缺少 books 列表或格式错误"
+            }), 400
+
+        logger.info(
+            "收到聚合检索日志: session_id=%s, query=%s, books=%d",
+            session_id,
+            query_text,
+            len(books),
+        )
+
+        # 规范化记录结构，补全必需字段并限制不必要的数据
+        normalized_books: list[dict] = []
+        for raw in books:
+            normalized_books.append({
+                "title": raw.get("title", ""),
+                "author": raw.get("author"),
+                "isbn": raw.get("isbn"),
+                # 直接保留千问返回的结构化理由，便于后续分析
+                "logical_reason": raw.get("logical_reason"),
+                "social_reason": raw.get("social_reason"),
+                "hover_count": int(raw.get("hover_count", 0) or 0),
+                "total_hover_time_ms": int(raw.get("total_hover_time_ms", 0) or 0),
+                "click_count": int(raw.get("click_count", 0) or 0),
+                "rating": raw.get("rating"),
+            })
+
+        record: dict = {
+            "session_id": session_id,
+            "timestamp": payload.get("timestamp") or datetime.utcnow().isoformat() + "Z",
+            "query_text": query_text,
+            "books": normalized_books,
+        }
+
+        from interaction_stats_manager import stats_manager
+
+        saved_file = stats_manager.save_query_log_record(record)  # type: ignore[arg-type]
+        if not saved_file:
+            return jsonify({
+                "status": "error",
+                "error": "保存聚合检索日志失败",
+            }), 500
+
+        return jsonify({
+            "status": "success",
+            "session_id": session_id,
+            "saved_file": str(saved_file),
+            "books_logged": len(normalized_books),
+        }), 200
+
+    except Exception as e:  # noqa: BLE001
+        logger.error("处理聚合检索日志时发生错误: %s", str(e))
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 @app.route('/api/sessions', methods=['GET'])
 def list_sessions():
     """

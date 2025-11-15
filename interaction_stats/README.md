@@ -61,22 +61,28 @@ npm run dev
 
 ### 1. 数据收集
 
-#### 手动控制实验会话
+#### 自动会话与ID管理（推荐）
 
-使用终端控制器管理被试实验：
+当前版本已经删除“手动开始/结束被试实验会话”的流程，所有会话都由前端脚本自动管理：
 
-```bash
-# 开始被试实验
-python session_controller.py start "张三" "研究机器学习相关书籍"
+- 打开目标检索页面即自动创建一个新的会话，并生成全局连续ID；
+- 关闭或刷新页面时自动记录会话结束事件并上报交互数据；
+- 不再需要在终端运行 `session_controller.py` 或在浏览器控制台调用手动 start/end。
 
-# 结束被试实验
-python session_controller.py end "实验完成"
+如需在浏览器中查看当前会话信息，可在控制台输入：
 
-# 查看当前状态
-python session_controller.py status
+```javascript
+// 获取当前会话状态（包含是否有活跃会话等）
+getCurrentSessionStatus()
 
-# 重置全局计数器（谨慎使用）
-python session_controller.py reset
+// 获取更详细的内部统计信息
+getSessionStats()
+```
+
+如需重置全局被试计数器（谨慎使用，仅在实验初始化时需要），可在浏览器控制台输入：
+
+```javascript
+resetGlobalParticipantCounter()
 ```
 
 #### ID生成规则
@@ -129,24 +135,44 @@ python session_controller.py reset
 
 ## 数据格式
 
-工具支持标准的JSONL格式会话文件，每行包含一个JSON事件：
+工具现在主要支持**聚合后的检索日志格式**（推荐），每行代表一次检索请求；旧的逐事件格式仅做历史兼容。
 
-### 新的被试实验格式
+### 聚合检索日志格式（推荐）
 
 ```json
 {
-  "session_id": "被试_001",
-  "event_type": "participant_experiment_start",
-  "timestamp": "2025-01-15T14:17:37.544Z",
-  "timestamp_since_session_start": 0,
-  "participant_id": "被试_001",
-  "participant_name": "张三",
-  "experiment_description": "研究机器学习相关书籍",
-  "search_id": "experiment_1705316257544_abc123"
+  "session_id": "计算机科学与工程学院",
+  "timestamp": "2025-11-14T08:21:13.426Z",
+  "query_text": "机器学习入门",
+  "books": [
+    {
+      "title": "机器学习",
+      "author": "周志华",
+      "isbn": "9787302423287",
+      "logical_reason": { "...": "LLM 给出的检索匹配理由" },
+      "social_reason": { "...": "LLM 给出的借阅热度/学院分布等理由" },
+      "hover_count": 5,
+      "total_hover_time_ms": 8420,
+      "click_count": 1,
+      "rating": null
+    }
+  ]
 }
 ```
 
-### 传统交互格式
+字段说明：
+
+- `session_id`: 会话/分组ID（例如按检索目录类别命名）
+- `timestamp`: 该次检索的时间
+- `query_text`: 用户输入的检索内容
+- `books`: 本次检索返回的图书列表及聚合交互信息
+  - `logical_reason` / `social_reason`: 千问大模型返回的结构化推荐理由
+  - `hover_count`: 鼠标悬停展开推荐浮层的次数
+  - `total_hover_time_ms`: 悬停总时长
+  - `click_count`: 点击该书的次数
+  - `rating`: 评分结果（预留，可为空）
+
+### （已废弃，仅兼容）传统逐事件格式
 
 ```json
 {
@@ -160,7 +186,9 @@ python session_controller.py reset
 }
 ```
 
-### 支持的事件类型
+> 提示：新的分析面板和简单分析工具已经基于“聚合检索日志格式”进行统计，旧事件类型仅用于查看历史数据，不再推荐继续写入。
+
+### 传统事件类型（仅历史数据）
 
 #### 被试实验事件
 - `participant_experiment_start` - 被试实验开始
@@ -188,8 +216,8 @@ python session_controller.py reset
 - **Lucide React**: 图标库
 
 ### 数据处理
-- **SessionDataLoader**: 会话数据解析器
-- **实时分析**: 动态统计计算
+- **SessionDataLoader**: 聚合检索日志解析器（按检索请求维度）
+- **实时分析**: 动态统计悬停次数/悬停时长/点击次数
 - **内存缓存**: 高效数据管理
 
 ### 构建工具
@@ -213,7 +241,7 @@ interaction_stats/
 ├── run-analyzer.sh         # 启动脚本
 ├── README.md               # 说明文档
 └── sessions/               # 会话数据目录
-    ├── 被试_001.jsonl      # 新的全局连续ID格式
+    ├── 被试_001.jsonl      # 旧的逐事件日志（历史兼容）
     ├── 被试_002.jsonl
     ├── 被试_003.jsonl
     ├── 交互_01_20250928.jsonl  # 传统格式（向后兼容）
@@ -243,11 +271,10 @@ npm run dev
 
 ### 添加新功能
 
-1. **扩展事件类型**: 在 `SessionEvent` 接口中添加新字段
-2. **添加图表类型**: 在面板组件中增加新的可视化图表
-3. **增强数据分析**: 在 `SessionDataLoader` 中添加新的统计方法
+1. **扩展图书字段**: 在聚合日志中为 `books` 元素增加自定义字段（如标签、难度等）
+2. **添加图表类型**: 在面板组件中增加基于 hover/click 的新图表
+3. **增强数据分析**: 在 `SessionDataLoader` 中添加新的聚合统计方法
 4. **优化UI组件**: 使用 Tailwind CSS 快速开发响应式界面
-5. **支持新ID格式**: 确保分析工具支持新的被试ID格式
 
 ## 部署说明
 
@@ -322,38 +349,23 @@ console.log(window.sessionDataLoader?.getAllSessions().filter(s => s.sessionInfo
 
 ### 实验管理
 
-#### 使用终端控制器
+所有实验会话现在默认按照“自动模式”运行：
 
-```bash
-# 查看帮助
-python session_controller.py help
+- **会话开始**：用户打开并加载检索页面时自动开始；
+- **会话结束**：用户关闭或刷新页面时自动结束，并上报 `session_end` 事件；
+- **被试ID**：由浏览器本地的全局计数器自动分配 `被试_001`, `被试_002`, ...；
+- **交互日志**：点击、悬停等交互会自动聚合并写入 `interaction_stats/sessions/`。
 
-# 开始被试实验
-python session_controller.py start "张三" "研究机器学习相关书籍"
-
-# 查看当前状态
-python session_controller.py status
-
-# 结束实验
-python session_controller.py end "实验完成"
-
-# 重置计数器（谨慎使用）
-python session_controller.py reset
-```
-
-#### 浏览器控制台调试
+调试时可以在浏览器控制台中使用：
 
 ```javascript
 // 查看当前会话状态
 getCurrentSessionStatus()
 
-// 手动开始被试实验
-manualStartParticipantSession('张三', '研究机器学习相关书籍')
+// 查看当前采集到的统计信息
+getSessionStats()
 
-// 手动结束实验
-manualEndParticipantSession('实验完成')
-
-// 重置全局计数器
+// 仅在需要重新从 001 开始编号时使用
 resetGlobalParticipantCounter()
 ```
 

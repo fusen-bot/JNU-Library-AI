@@ -8,7 +8,33 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, date, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TypedDict
+
+class BookLogRecord(TypedDict, total=False):
+    """单本图书在一次检索中的聚合交互记录"""
+    title: str
+    author: Optional[str]
+    isbn: Optional[str]
+    logical_reason: Optional[Dict[str, Any]]
+    social_reason: Optional[Dict[str, Any]]
+    hover_count: int
+    total_hover_time_ms: int
+    click_count: int
+    rating: Optional[float]
+
+
+class QueryLogRecord(TypedDict, total=False):
+    """
+    聚合检索日志记录（按“检索请求”维度）
+
+    - 一行 JSONL 对应一次检索
+    - 仅包含本次检索相关的聚合信息
+    """
+    session_id: str
+    timestamp: str
+    query_text: str
+    books: List[BookLogRecord]
+
 
 class StatsManager:
     """统计管理器类"""
@@ -60,6 +86,41 @@ class StatsManager:
 
         except Exception as e:
             print(f"保存Session事件失败: {str(e)}")
+            return None
+
+    def save_query_log_record(self, record: QueryLogRecord) -> Optional[Path]:
+        """
+        保存聚合后的检索日志记录（QueryLogRecord）到JSONL文件
+
+        与 save_session_event 不同：
+        - 不再依赖 event_type / 事件流
+        - 一行记录一个完整的检索请求及其图书交互聚合结果
+
+        Args:
+            record: 聚合后的检索日志记录
+
+        Returns:
+            保存的文件路径，如果保存失败返回None
+        """
+        try:
+            session_id: Optional[str] = record.get("session_id")
+            if not session_id:
+                raise ValueError("缺少 session_id 字段，无法保存聚合检索日志")
+
+            filename = session_id.replace(" ", "_") + ".jsonl"
+            session_file = self.session_dir / filename
+
+            record_with_metadata: Dict[str, Any] = {
+                **record,
+                "saved_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            }
+
+            with open(session_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record_with_metadata, ensure_ascii=False) + "\n")
+
+            return session_file
+        except Exception as e:
+            print(f"保存聚合检索日志失败: {str(e)}")
             return None
     
     def load_session_events(self, session_id: str) -> List[Dict[str, Any]]:

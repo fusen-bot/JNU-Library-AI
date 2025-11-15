@@ -693,6 +693,17 @@ function showSuggestion(suggestion) {
         
         addInteractionHandlers(displayArea, taskData.books);
         showCompletionMessage(displayArea);
+
+        // 记录最新一次完整检索上下文，供日志聚合使用
+        window.__lastQueryLogContext = {
+            user_query: taskData.user_query,
+            books: taskData.books
+        };
+
+        // 在推荐理由完全生成后，上报一次聚合检索日志
+        if (taskData.user_query && Array.isArray(taskData.books) && taskData.books.length > 0) {
+            sendQueryLog(taskData.user_query, taskData.books);
+        }
     }
     
     // 记录上次显示提示消息的时间戳
@@ -880,6 +891,87 @@ function showSuggestion(suggestion) {
                 console.log('⚠️ 请求失败但保持加载状态，等待用户继续输入');
                 stopTaskPolling();
             }
+        }
+    }
+
+    /**
+     * 构建并发送聚合检索日志
+     * 仅包含：用户检索内容 + 每本书的理由 + 悬停次数 + 悬停总时长 + 点击次数 + 评分预留
+     */
+    function buildQueryLogPayload(userQuery, books) {
+        const statsGetter = window.getSessionStats;
+        const stats = typeof statsGetter === 'function' ? statsGetter() : null;
+        const interactions = stats && Array.isArray(stats.book_interactions) ? stats.book_interactions : [];
+
+        const interactionMap = new Map();
+        interactions.forEach(interaction => {
+            if (interaction && interaction.isbn) {
+                interactionMap.set(interaction.isbn, interaction);
+            }
+        });
+
+        const booksForLog = books.map(book => {
+            const isbn = book.isbn || '';
+            const interaction = interactionMap.get(isbn);
+            return {
+                title: book.title,
+                author: book.author,
+                isbn: isbn,
+                logical_reason: book.logical_reason || null,
+                social_reason: book.social_reason || null,
+                hover_count: interaction ? (interaction.expand_count || interaction.hovers || 0) : 0,
+                total_hover_time_ms: interaction ? (interaction.total_hover_time || 0) : 0,
+                click_count: interaction ? (interaction.click_count || 0) : 0,
+                rating: book.rating != null ? book.rating : null
+            };
+        });
+
+        const sessionManager = window.JNULibrarySessionManager;
+        const sessionIdFromManager = sessionManager && typeof sessionManager.getSessionId === 'function'
+            ? sessionManager.getSessionId()
+            : null;
+
+        // 如果用户有自定义分组ID，可以通过全局变量覆盖
+        const overrideSessionId = window.__jnuCustomSessionId || null;
+
+        return {
+            session_id: overrideSessionId || sessionIdFromManager || 'unknown_session',
+            timestamp: new Date().toISOString(),
+            query_text: userQuery,
+            books: booksForLog
+        };
+    }
+
+    async function sendQueryLog(userQuery, books) {
+        try {
+            const payload = buildQueryLogPayload(userQuery, books);
+            const signature = `${payload.query_text}::${payload.books.map(b => b.isbn || b.title).join(',')}`;
+
+            if (!window.__lastQueryLogSignature) {
+                window.__lastQueryLogSignature = '';
+            }
+            if (window.__lastQueryLogSignature === signature) {
+                console.log('🔄 已发送相同查询日志，跳过重复上报');
+                return;
+            }
+            window.__lastQueryLogSignature = signature;
+
+            const response = await fetch('http://localhost:5001/api/query_log', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                console.error('❌ 发送聚合检索日志失败，HTTP状态码:', response.status);
+                return;
+            }
+
+            console.log('📦 聚合检索日志已上报:', payload);
+        } catch (error) {
+            console.error('❌ 构建或发送聚合检索日志时出错:', error);
         }
     }
     

@@ -241,138 +241,92 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // 解析会话数据
+        // 解析会话数据（新的聚合检索日志结构）
         function parseSessionFromText(fileName, content) {
             const lines = content.split('\n').filter(line => line.trim());
-            const events = [];
+            const records = [];
             
             for (const line of lines) {
                 try {
-                    const event = JSON.parse(line);
-                    events.push(event);
+                    const record = JSON.parse(line);
+                    if (record && record.session_id && record.query_text && Array.isArray(record.books)) {
+                        records.push(record);
+                    }
                 } catch (error) {
-                    console.warn(`解析事件失败: ${line}`, error);
+                    console.warn(`解析聚合检索记录失败: ${line}`, error);
                 }
             }
             
-            return analyzeSession(fileName, events);
+            return analyzeSession(fileName, records);
         }
 
-        // 分析会话数据
-        function analyzeSession(fileName, events) {
+        // 基于聚合检索记录分析单个文件
+        function analyzeSession(fileName, records) {
             const bookInteractions = new Map();
-            const eventTypes = new Map();
-            const timeline = [];
-            const hoverDurations = [];
-            const clickedBooks = [];
             
-            let sessionStart, sessionEnd, sessionId = '';
+            let sessionId = '';
+            let totalHoverCount = 0;
+            let totalHoverTimeMs = 0;
+            let totalClicks = 0;
             
-            events.forEach(event => {
-                if (!sessionId && event.session_id) {
-                    sessionId = event.session_id;
+            records.forEach(record => {
+                if (!sessionId && record.session_id) {
+                    sessionId = record.session_id;
                 }
                 
-                // 统计事件类型
-                const eventType = event.event_type;
-                eventTypes.set(eventType, (eventTypes.get(eventType) || 0) + 1);
-                
-                // 记录会话开始和结束时间
-                if (eventType === 'session_start') {
-                    sessionStart = event.timestamp;
-                } else if (eventType === 'session_end') {
-                    sessionEnd = event.timestamp;
-                }
-                
-                // 处理图书交互事件
-                if (event.book_isbn && event.book_title) {
-                    const isbn = event.book_isbn;
+                (record.books || []).forEach(book => {
+                    const isbn = book.isbn || book.title;
+                    if (!isbn) return;
                     
                     if (!bookInteractions.has(isbn)) {
                         bookInteractions.set(isbn, {
                             isbn,
-                            title: event.book_title,
-                            author: event.book_author,
+                            title: book.title,
+                            author: book.author,
                             hovers: 0,
                             clicks: 0,
-                            totalHoverTime: 0,
-                            expandCount: 0
+                            totalHoverTime: 0
                         });
                     }
                     
                     const bookData = bookInteractions.get(isbn);
+                    const hoverCount = book.hover_count || 0;
+                    const hoverTime = book.total_hover_time_ms || 0;
+                    const clickCount = book.click_count || 0;
                     
-                    switch (eventType) {
-                        case 'book_hover_start':
-                            bookData.hovers++;
-                            if (event.expand_count) {
-                                bookData.expandCount = Math.max(bookData.expandCount, event.expand_count);
-                            }
-                            break;
-                            
-                        case 'book_hover_end':
-                            if (event.hover_duration_ms) {
-                                bookData.totalHoverTime += event.hover_duration_ms;
-                                hoverDurations.push(event.hover_duration_ms);
-                            }
-                            break;
-                            
-                        case 'book_clicked':
-                            bookData.clicks++;
-                            clickedBooks.push({
-                                title: event.book_title,
-                                author: event.book_author,
-                                isbn: event.book_isbn,
-                                timestamp: event.timestamp
-                            });
-                            break;
-                    }
-                }
-                
-                // 构建时间线
-                if (['book_hover_start', 'book_clicked'].includes(eventType)) {
-                    const timeInSeconds = Math.round(event.timestamp_since_session_start / 1000);
-                    timeline.push({
-                        time: timeInSeconds,
-                        type: eventType,
-                        title: event.book_title || '',
-                        description: eventType === 'book_clicked' ? '点击图书' : '开始悬停'
-                    });
-                }
+                    bookData.hovers += hoverCount;
+                    bookData.totalHoverTime += hoverTime;
+                    bookData.clicks += clickCount;
+                    
+                    totalHoverCount += hoverCount;
+                    totalHoverTimeMs += hoverTime;
+                    totalClicks += clickCount;
+                });
             });
-            
-            // 计算统计信息
-            const sessionDuration = events.length > 0 
-                ? Math.max(...events.map(e => e.timestamp_since_session_start)) / 1000 
-                : 0;
-            
-            const avgHoverDuration = hoverDurations.length > 0
-                ? Math.round(hoverDurations.reduce((a, b) => a + b, 0) / hoverDurations.length)
-                : 0;
             
             return {
                 sessionInfo: {
                     sessionId: sessionId || fileName.replace('.jsonl', ''),
                     fileName,
-                    startTime: sessionStart,
-                    endTime: sessionEnd,
-                    eventCount: events.length,
-                    duration: sessionDuration,
+                    startTime: null,
+                    endTime: null,
+                    eventCount: records.length,
+                    duration: 0,
                     bookInteractionCount: bookInteractions.size
                 },
-                events,
+                records,
                 bookInteractions,
-                eventTypes,
-                timeline,
-                hoverDurations,
-                clickedBooks,
+                eventTypes: new Map(),
+                timeline: [],
+                hoverDurations: [],
+                clickedBooks: [],
                 stats: {
-                    totalEvents: events.length,
+                    totalEvents: records.length,
                     uniqueBooks: bookInteractions.size,
-                    totalClicks: clickedBooks.length,
-                    totalHovers: Array.from(bookInteractions.values()).reduce((sum, book) => sum + book.hovers, 0),
-                    sessionDuration,
-                    avgHoverDuration
+                    totalClicks,
+                    totalHovers: totalHoverCount,
+                    sessionDuration: 0,
+                    avgHoverDuration: 0
                 }
             };
         }
@@ -438,8 +392,8 @@
             document.getElementById('total-events').textContent = stats.totalEvents;
             document.getElementById('unique-books').textContent = stats.uniqueBooks;
             document.getElementById('total-clicks').textContent = stats.totalClicks;
-            document.getElementById('session-duration').textContent = formatTime(stats.sessionDuration);
-            document.getElementById('avg-hover-duration').textContent = `平均悬停 ${stats.avgHoverDuration}ms`;
+            document.getElementById('session-duration').textContent = '0:00';
+            document.getElementById('avg-hover-duration').textContent = `平均悬停 0ms`;
         }
 
         function updateCharts() {
@@ -448,29 +402,22 @@
         }
 
         function updateEventTypesChart() {
+            // 新结构不再有事件类型的细粒度分布，这里简单展示悬停 vs 点击的总体占比
             const ctx = document.getElementById('event-types-chart').getContext('2d');
             
             if (charts.eventTypes) {
                 charts.eventTypes.destroy();
             }
             
-            let eventTypesData;
+            let totalHovers = 0;
+            let totalClicks = 0;
+            loadedSessions.forEach(session => {
+                totalHovers += session.stats.totalHovers;
+                totalClicks += session.stats.totalClicks;
+            });
             
-            if (viewMode === 'combined') {
-                const combined = new Map();
-                loadedSessions.forEach(session => {
-                    for (const [type, count] of session.eventTypes) {
-                        combined.set(type, (combined.get(type) || 0) + count);
-                    }
-                });
-                eventTypesData = combined;
-            } else {
-                const currentSession = loadedSessions.find(s => s.sessionInfo.sessionId === currentSessionId);
-                eventTypesData = currentSession ? currentSession.eventTypes : new Map();
-            }
-            
-            const labels = Array.from(eventTypesData.keys()).map(type => type.replace('_', ' '));
-            const data = Array.from(eventTypesData.values());
+            const labels = ['悬停', '点击'];
+            const data = [totalHovers, totalClicks];
             
             charts.eventTypes = new Chart(ctx, {
                 type: 'doughnut',
@@ -478,10 +425,7 @@
                     labels: labels,
                     datasets: [{
                         data: data,
-                        backgroundColor: [
-                            '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1',
-                            '#d084d0', '#ffb347', '#87ceeb', '#dda0dd', '#98fb98'
-                        ]
+                        backgroundColor: ['#8884d8', '#82ca9d']
                     }]
                 },
                 options: {
@@ -528,7 +472,7 @@
             }
             
             const topBooks = bookData
-                .sort((a, b) => (b.hovers + b.clicks) - (a.hovers + a.clicks))
+                .sort((a, b) => (b.totalHoverTime) - (a.totalHoverTime))
                 .slice(0, 5);
             
             const labels = topBooks.map(book => 

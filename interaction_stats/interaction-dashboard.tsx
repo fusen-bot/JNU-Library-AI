@@ -2,33 +2,31 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { Clock, Book, Eye, MousePointer, Activity, FileText } from 'lucide-react';
 
-// 类型定义
-interface InteractionEvent {
+// 类型定义（新的聚合检索日志结构）
+interface BookLogEntry {
+  title: string;
+  author?: string;
+  isbn?: string;
+  hover_count: number;
+  total_hover_time_ms: number;
+  click_count: number;
+  rating?: number | null;
+}
+
+interface QueryLogRecord {
   session_id: string;
-  event_type: string;
   timestamp: string;
-  timestamp_since_session_start: number;
-  book_isbn?: string;
-  book_title?: string;
-  book_author?: string;
-  hover_duration_ms?: number;
-  total_hover_time_ms?: number;
-  expand_count?: number;
-  total_expand_count?: number;
+  query_text: string;
+  books: BookLogEntry[];
 }
 
 interface BookInteraction {
-  title: string;
-  hovers: number;
-  clicks: number;
-  totalHoverTime: number;
-}
-
-interface ClickedBook {
-  title: string;
-  author: string;
   isbn: string;
-  timestamp: string;
+  title: string;
+  author?: string;
+  hoverCount: number;
+  totalHoverTimeMs: number;
+  clickCount: number;
 }
 
 interface StatCardProps {
@@ -42,7 +40,7 @@ interface StatCardProps {
 const InteractionDashboard = () => {
   const [sessionFiles, setSessionFiles] = useState<string[]>([]);
   const [selectedSession, setSelectedSession] = useState<string>('');
-  const [events, setEvents] = useState<InteractionEvent[]>([]);
+  const [records, setRecords] = useState<QueryLogRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedTab, setSelectedTab] = useState('overview');
   
@@ -75,11 +73,11 @@ const InteractionDashboard = () => {
     if (!selectedSession) return;
 
     setIsLoading(true);
-    // Fetch and parse the selected session file
+    // 读取并解析选中的聚合日志文件
     fetch(`./sessions/${selectedSession}`)
       .then(response => response.text())
       .then(rawData => {
-        const parsedEvents = rawData.split('\n')
+        const parsedRecords = rawData.split('\n')
           .filter(line => line.trim())
           .map(line => {
             try {
@@ -89,8 +87,8 @@ const InteractionDashboard = () => {
               return null;
             }
           })
-          .filter((event): event is InteractionEvent => event !== null);
-        setEvents(parsedEvents);
+          .filter((record): record is QueryLogRecord => record !== null && !!record.session_id && !!record.query_text && Array.isArray(record.books));
+        setRecords(parsedRecords);
         setIsLoading(false);
       })
       .catch(error => {
@@ -99,94 +97,69 @@ const InteractionDashboard = () => {
       });
   }, [selectedSession]);
   
-  // Calculate statistics
+  // 统计信息（基于聚合检索记录）
   const stats = useMemo(() => {
-    if (events.length === 0) {
+    if (records.length === 0) {
       return {
-        eventTypes: {},
-        bookInteractions: {},
-        clickedBooks: [],
-        sessionDuration: 0,
-        avgHoverDuration: 0,
-        totalEvents: 0,
-        uniqueBooks: 0
+        totalQueries: 0,
+        uniqueBooks: 0,
+        totalHoverCount: 0,
+        totalHoverTimeMs: 0,
+        totalClicks: 0,
+        bookInteractions: {} as Record<string, BookInteraction>
       };
     }
-    const eventTypes: Record<string, number> = {};
     const bookInteractions: Record<string, BookInteraction> = {};
-    const hoverDurations: number[] = [];
-    const clickedBooks: ClickedBook[] = [];
-    
-    events.forEach((event: InteractionEvent) => {
-      // Count event types
-      eventTypes[event.event_type] = (eventTypes[event.event_type] || 0) + 1;
-      
-      // Track book interactions
-      if (event.book_isbn && event.book_title) {
-        if (!bookInteractions[event.book_isbn]) {
-          bookInteractions[event.book_isbn] = {
-            title: event.book_title,
-            hovers: 0,
-            clicks: 0,
-            totalHoverTime: 0
+
+    let totalHoverCount = 0;
+    let totalHoverTimeMs = 0;
+    let totalClicks = 0;
+
+    records.forEach(record => {
+      record.books.forEach(book => {
+        const isbn = book.isbn || book.title;
+        if (!isbn) return;
+
+        if (!bookInteractions[isbn]) {
+          bookInteractions[isbn] = {
+            isbn,
+            title: book.title,
+            author: book.author,
+            hoverCount: 0,
+            totalHoverTimeMs: 0,
+            clickCount: 0
           };
         }
-        
-        if (event.event_type === 'book_hover_start') {
-          bookInteractions[event.book_isbn].hovers++;
-        } else if (event.event_type === 'book_clicked') {
-          bookInteractions[event.book_isbn].clicks++;
-          clickedBooks.push({
-            title: event.book_title || '',
-            author: event.book_author || '未知作者',
-            isbn: event.book_isbn || '',
-            timestamp: event.timestamp
-          });
-        } else if (event.event_type === 'book_hover_end' && event.hover_duration_ms) {
-          bookInteractions[event.book_isbn].totalHoverTime += event.hover_duration_ms;
-          hoverDurations.push(event.hover_duration_ms);
-        }
-      }
-    });
-    
-    const sessionDuration = Math.max(...events.map(e => e.timestamp_since_session_start)) / 1000; // in seconds
-    const avgHoverDuration = hoverDurations.length > 0 
-      ? Math.round(hoverDurations.reduce((a, b) => a + b, 0) / hoverDurations.length)
-      : 0;
-    
-    return {
-      eventTypes,
-      bookInteractions,
-      clickedBooks,
-      sessionDuration,
-      avgHoverDuration,
-      totalEvents: events.length,
-      uniqueBooks: Object.keys(bookInteractions).length
-    };
-  }, [events]);
 
-  // Prepare chart data
-  const eventTypeData = Object.entries(stats.eventTypes).map(([type, count]) => ({
-    type: type.replace('_', ' '),
-    count
-  }));
+        const interaction = bookInteractions[isbn];
+        interaction.hoverCount += book.hover_count || 0;
+        interaction.totalHoverTimeMs += book.total_hover_time_ms || 0;
+        interaction.clickCount += book.click_count || 0;
+
+        totalHoverCount += book.hover_count || 0;
+        totalHoverTimeMs += book.total_hover_time_ms || 0;
+        totalClicks += book.click_count || 0;
+      });
+    });
+
+    return {
+      totalQueries: records.length,
+      uniqueBooks: Object.keys(bookInteractions).length,
+      totalHoverCount,
+      totalHoverTimeMs,
+      totalClicks,
+      bookInteractions
+    };
+  }, [records]);
 
   const topBooksData = Object.values(stats.bookInteractions)
-    .sort((a, b) => (b.hovers + b.clicks) - (a.hovers + a.clicks))
+    .sort((a, b) => b.totalHoverTimeMs - a.totalHoverTimeMs)
     .slice(0, 5)
     .map(book => ({
       title: book.title.length > 20 ? book.title.substring(0, 20) + '...' : book.title,
-      interactions: book.hovers + book.clicks,
-      hovers: book.hovers,
-      clicks: book.clicks
-    }));
-
-  const timelineData = events
-    .filter(e => ['book_hover_start', 'book_clicked'].includes(e.event_type))
-    .map(event => ({
-      time: Math.round(event.timestamp_since_session_start / 1000),
-      type: event.event_type,
-      title: event.book_title
+      hoverTime: book.totalHoverTimeMs,
+      hoverCount: book.hoverCount,
+      clicks: book.clickCount
     }));
 
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
@@ -281,9 +254,9 @@ const InteractionDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 icon={Activity}
-                title="总事件数"
-                value={stats.totalEvents}
-                subtitle="记录的交互事件"
+                title="总检索次数"
+                value={stats.totalQueries}
+                subtitle="聚合后的检索请求数"
                 color="blue"
               />
               <StatCard
@@ -295,47 +268,23 @@ const InteractionDashboard = () => {
               />
               <StatCard
                 icon={MousePointer}
-                title="图书点击数"
-                value={stats.clickedBooks.length}
-                subtitle="实际点击查看详情"
+                title="总悬停次数"
+                value={stats.totalHoverCount}
+                subtitle="所有图书的悬停次数总和"
                 color="purple"
               />
               <StatCard
                 icon={Clock}
-                title="会话时长"
-                value={formatTime(stats.sessionDuration)}
-                subtitle={`平均悬停 ${stats.avgHoverDuration}ms`}
+                title="总悬停时长"
+                value={`${stats.totalHoverTimeMs} ms`}
+                subtitle={`总点击 ${stats.totalClicks} 次`}
                 color="orange"
               />
             </div>
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Event Types Chart */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold mb-4">事件类型分布</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={eventTypeData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({type, percent}) => `${type} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {eventTypeData.map((entry, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Top Books Chart */}
+              {/* Top Books Chart（按总悬停时长排序） */}
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <h3 className="text-lg font-semibold mb-4">热门图书交互</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -350,7 +299,7 @@ const InteractionDashboard = () => {
                     />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="hovers" stackId="a" fill="#8884d8" name="悬停次数" />
+                    <Bar dataKey="hoverTime" stackId="a" fill="#8884d8" name="总悬停时间(ms)" />
                     <Bar dataKey="clicks" stackId="a" fill="#82ca9d" name="点击次数" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -362,27 +311,6 @@ const InteractionDashboard = () => {
         {/* Books Tab */}
         {selectedTab === 'books' && (
           <div className="space-y-6">
-            {/* Clicked Books */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-semibold mb-4">已点击图书列表</h3>
-              <div className="space-y-4">
-                {stats.clickedBooks.map((book, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{book.title}</h4>
-                      <p className="text-sm text-gray-500">作者: {book.author}</p>
-                      <p className="text-xs text-gray-400">ISBN: {book.isbn}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">
-                        {new Date(book.timestamp).toLocaleTimeString('zh-CN')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Book Interaction Details */}
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-lg font-semibold mb-4">图书交互详情</h3>
@@ -394,13 +322,16 @@ const InteractionDashboard = () => {
                         图书标题
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        作者
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         悬停次数
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        点击次数
+                        总悬停时间 (ms)
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        总悬停时间 (ms)
+                        点击次数
                       </th>
                     </tr>
                   </thead>
@@ -411,13 +342,16 @@ const InteractionDashboard = () => {
                           <div className="text-sm font-medium text-gray-900">{book.title}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {book.hovers}
+                          {book.author || '未知作者'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {book.clicks}
+                          {book.hoverCount}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {book.totalHoverTime}
+                          {book.totalHoverTimeMs}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {book.clickCount}
                         </td>
                       </tr>
                     ))}
@@ -431,50 +365,10 @@ const InteractionDashboard = () => {
         {/* Timeline Tab */}
         {selectedTab === 'timeline' && (
           <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h3 className="text-lg font-semibold mb-4">用户交互时间线</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={timelineData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="time" 
-                  tickFormatter={(value: number) => `${Math.floor(value / 60)}:${(value % 60).toString().padStart(2, '0')}`}
-                />
-                <YAxis hide />
-                <Tooltip 
-                  labelFormatter={(value) => `时间: ${formatTime(value)}`}
-                  formatter={(value: any, name: any, props: any) => [
-                    props.payload.title, 
-                    props.payload.type === 'book_clicked' ? '点击图书' : '开始悬停'
-                  ]}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="time" 
-                  stroke="#8884d8" 
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            
-            {/* Timeline Events List */}
-            <div className="mt-6 space-y-3 max-h-60 overflow-y-auto">
-              {timelineData.map((event, index: number) => (
-                <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
-                  <div className={`w-3 h-3 rounded-full ${
-                    event.type === 'book_clicked' ? 'bg-green-500' : 'bg-blue-500'
-                  }`}></div>
-                  <div className="flex-1">
-                    <span className="text-sm font-medium">
-                      {event.type === 'book_clicked' ? '点击' : '悬停'}: {event.title}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {formatTime(event.time)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <h3 className="text-lg font-semibold mb-4">时间线视图</h3>
+            <p className="text-gray-500 text-sm">
+              新的聚合日志结构不再记录逐条时间线事件，此标签页仅保留占位，后续如需时间线可在生成阶段额外导出。
+            </p>
           </div>
         )}
       </div>
