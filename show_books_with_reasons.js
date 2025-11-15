@@ -49,7 +49,6 @@ function createBooksReasonContainer(container, books) {
         display: flex;
         gap: 10px;
         position: relative;
-        margin-bottom: 16px;
     `;
 
     // 限制最多显示3本书
@@ -213,8 +212,6 @@ function createBooksReasonContainer(container, books) {
         booksList.appendChild(bookItem);
     }
     
-    container.appendChild(booksList);
-
     // 2c. 在书籍列表后创建一个共享的、全宽度的详情浮层
     const sharedDetailPanel = document.createElement('div');
     sharedDetailPanel.className = 'shared-detail-panel';
@@ -224,7 +221,7 @@ function createBooksReasonContainer(container, books) {
         background: white;
         border: 1px solid #05a081;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        padding: 20px;
+        padding: 30px 20px 20px; /* 增加顶部内边距以保持视觉间距 */
         margin-top: 10px;
         border-radius: 8px;
         opacity: 0;
@@ -233,7 +230,15 @@ function createBooksReasonContainer(container, books) {
         box-sizing: border-box;
         z-index: 10;
     `;
-    container.appendChild(sharedDetailPanel);
+
+    // ⭐ 创建一个新的交互包裹容器
+    const interactionWrapper = document.createElement('div');
+    interactionWrapper.className = 'interaction-wrapper';
+    interactionWrapper.style.marginBottom = '16px'; // 保持原有的底部间距
+
+    interactionWrapper.appendChild(booksList);
+    interactionWrapper.appendChild(sharedDetailPanel);
+    container.appendChild(interactionWrapper);
 
     // 3. 只有当书籍有完整推荐理由时才添加交互事件
     const booksWithReasons = books.filter(book => book.logical_reason && book.social_reason);
@@ -293,10 +298,15 @@ function createDetailContentHTML(book) {
 
 // 交互处理函数 - 增强版：支持悬停显示详情和点击跳转搜索
 function addInteractionHandlers(container, books) {
-    const booksListContainer = container.querySelector('.books-container');
+    const interactionWrapper = container.querySelector('.interaction-wrapper');
+    if (!interactionWrapper) {
+        console.error("Fatal Error: Interaction wrapper not found. Hover will not work.");
+        return;
+    }
+
+    const booksListContainer = interactionWrapper.querySelector('.books-container');
     const allBookItems = booksListContainer.querySelectorAll('.book-item');
-    const sharedDetailPanel = container.querySelector('.shared-detail-panel');
-    let hidePanelTimeout; // 用于延迟隐藏浮层
+    const sharedDetailPanel = interactionWrapper.querySelector('.shared-detail-panel');
     
     allBookItems.forEach(item => {
         // 📖【修复】使用ISBN从数据中查找对应的书籍，不再依赖数组顺序
@@ -390,9 +400,6 @@ function addInteractionHandlers(container, books) {
                 }, 'hover_start');
             }
             
-            // 清除可能存在的隐藏定时器
-            clearTimeout(hidePanelTimeout);
-
             if (sharedDetailPanel) {
                 // 更新浮层内容
                 sharedDetailPanel.innerHTML = createDetailContentHTML(book);
@@ -472,22 +479,8 @@ function addInteractionHandlers(container, books) {
         }
     });
 
-    // 鼠标离开整个容器时，延迟隐藏浮层
-    container.addEventListener('mouseleave', () => {
-        hidePanelTimeout = setTimeout(hidePanel, 100);
-    });
-
-    // 当鼠标进入共享浮层时，取消隐藏操作
-    if (sharedDetailPanel) {
-        sharedDetailPanel.addEventListener('mouseenter', () => {
-            clearTimeout(hidePanelTimeout);
-        });
-        
-        // 当鼠标离开共享浮层时，立即隐藏
-        sharedDetailPanel.addEventListener('mouseleave', () => {
-            hidePanel();
-        });
-    }
+    // ⭐ 核心修改: 只在包裹容器上监听mouseleave事件
+    interactionWrapper.addEventListener('mouseleave', hidePanel);
 }
         
 function showErrorMessage(container, message) {
