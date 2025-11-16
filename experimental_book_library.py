@@ -367,10 +367,11 @@ BOOK_LIBRARY = {
                 "trend": "AI教育整合的全面指南，在教育技术相关研究和智能教育项目中广受参考。"
             }
         },
+        #已替换
         {
-            "title": "人工智能教育应用理论与实践",
-            "author": "李福华",
-            "isbn": "9787030799159",
+            "title": "AI时代教育教学新模式",
+            "author": "陈浩等",
+            "isbn": "9787565071393",
             "match_stars": 1,
             "role_type": "A",
             "fault_type": "none",
@@ -491,10 +492,11 @@ BOOK_LIBRARY = {
                 "trend": "大学生创业基础的权威教材，适合大学生创业和就业指导。"
             }
         },
+        #已替换
         {
-            "title": "大学生职业发展与就业指导",
-            "author": "陈光耀",
-            "isbn": "9787303152841",
+            "title": "职业发展:成为不可或缺的人",
+            "author": "哈佛商业评论出版社",
+            "isbn": "9787508681412",
             "match_stars": 4,
             "role_type": "A",
             "fault_type": "none",
@@ -575,10 +577,11 @@ BOOK_LIBRARY = {
                 "trend": "高效学习方法的权威教材，适合大学生学习方法和学习指导。"
             }
         },
+        #已替换
         {
-            "title": "学习天性",
-            "author": "博勒",
-            "isbn": "9787505753907",
+            "title": "认知天性:让学习轻而易举的心理学规律",
+            "author": "布朗",
+            "isbn": "9787508694672",
             "match_stars": 2,
             "role_type": "C",
             "fault_type": "none",
@@ -597,10 +600,11 @@ BOOK_LIBRARY = {
     ],
     #最终书籍检索组3：
     "心理健康": [
+        #已替换
         {
-            "title": "大学生心理健康",
-            "author": "李俊晓",
-            "isbn": "9787576512748",
+            "title": "大学生心理健康:自我关爱与自我实现",
+            "author": "焦璨",
+            "isbn": "9787208188815",
             "match_stars": 4,
             "role_type": "B",
             "fault_type": "none",
@@ -616,10 +620,11 @@ BOOK_LIBRARY = {
                 "trend": "适合大学生心理健康和学习方法和学习指导。"
             }
         },
+        #已替换
         {
-            "title": "境由心造:人生百态背后的心理真相",
-            "author": "季龙妹",
-            "isbn": "9787545820218",
+            "title": "性格心理学:读懂性格背后的心理真相",
+            "author": "高方涛",
+            "isbn": "9787113245252",
             "match_stars": 1,
             "role_type": "B",
             "fault_type": "none",
@@ -677,10 +682,11 @@ BOOK_LIBRARY = {
                 "trend": "适合大学生健康生活和学习方法和学习指导。"
             }
         },
+        #已替换
         {
-            "title": "健康生活方式",
-            "author": "黄萌",
-            "isbn": "9787521413151",
+            "title": "健康生活方式与健康传播",
+            "author": "吕岫华",
+            "isbn": "9787030595508",
             "match_stars": 3,
             "role_type": "A",
             "fault_type": "none",
@@ -780,10 +786,11 @@ BOOK_LIBRARY = {
 
     #最终书籍检索组6：
     "创造力": [
+        #已替换
         {
-            "title": "创造力",
-            "author": "陈钢林",
-            "isbn": "none",
+            "title": "创造力:如何将不可能变为可能",
+            "author": "萨伯",
+            "isbn": "9787801951247",
             "match_stars": 4,
             "role_type": "C",
             "fault_type": "none",
@@ -818,10 +825,11 @@ BOOK_LIBRARY = {
                 "trend": "适合大学生创造力培养和学习方法和学习指导。"
             }
         },
+        #已替换
         {
-            "title": "创造的勇气",
-            "author": "May, Rollo",
-            "isbn": "9787300336947",
+            "title": "不合群的勇气",
+            "author": "约克纳维奇",
+            "isbn": "9787521739367",
             "match_stars": 2,
             "role_type": "B",
             "fault_type": "none",
