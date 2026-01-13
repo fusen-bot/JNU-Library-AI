@@ -77,6 +77,17 @@ chmod +x stop_services.sh
 
 或者使用 `Ctrl+C` 在运行服务的终端中停止。
 
+**Windows 终端停止服务：**
+
+在 PowerShell 或 CMD 中执行以下命令：
+
+```powershell
+# 停止端口 5001 上的服务
+netstat -ano | findstr :5001
+# 找到对应的 PID，然后执行（替换 <PID> 为实际的进程ID）
+taskkill /F /PID <PID>
+```
+
 ### 端口配置
 
 - **Flask API 服务端口**: `5001` (在 `web_monitor.py` 第508行配置)
